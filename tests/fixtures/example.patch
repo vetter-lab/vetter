@@ -1,0 +1,22 @@
+diff --git a/src/example.ts b/src/example.ts
+index 1111111..2222222 100644
+--- a/src/example.ts
++++ b/src/example.ts
+@@ -9,6 +9,7 @@
+ line9
+ line10
+ line11
++line12 added
+ line13
+ line14
+ line15
+diff --git a/src/removed.ts b/src/removed.ts
+deleted file mode 100644
+index 3333333..0000000
+--- a/src/removed.ts
++++ /dev/null
+@@ -1,4 +0,0 @@
+-old line1
+-old line2
+-old line3
+-old line4
