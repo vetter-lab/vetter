@@ -1,0 +1,39 @@
+{
+  "name": "vetter",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "pnpm typecheck && pnpm build:app && pnpm build:action",
+    "build:app": "tsup src/runtimes/app/server.ts --format esm --out-dir dist/app",
+    "build:action": "ncc build src/runtimes/action/main.ts -o dist/action",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@actions/core": "latest",
+    "@actions/github": "latest",
+    "@octokit/auth-app": "latest",
+    "@octokit/plugin-retry": "latest",
+    "@octokit/plugin-throttling": "latest",
+    "fastify": "latest",
+    "fastify-raw-body": "latest",
+    "octokit": "latest",
+    "openai": "latest",
+    "parse-diff": "latest",
+    "yaml": "latest",
+    "zod": "latest"
+  },
+  "devDependencies": {
+    "@octokit/webhooks-types": "latest",
+    "@types/node": "latest",
+    "@vercel/ncc": "latest",
+    "tsup": "latest",
+    "tsx": "latest",
+    "typescript": "latest",
+    "vitest": "latest"
+  }
+}
