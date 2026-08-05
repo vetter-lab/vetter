@@ -1,0 +1,31 @@
+version: 1
+
+review:
+  enabled: true
+  incremental: true
+  model: gpt-4o-mini
+  maxDiffBytes: 200000
+
+events:
+  push:
+    enabled: true
+    requireOpenPullRequest: true
+    branchPatterns:
+      - "**"
+
+severity:
+  critical:
+    blockMerge: false
+  major:
+    blockMerge: false
+  minor:
+    blockMerge: false
+
+analyzers:
+  - semgrep
+  - eslint
+
+limits:
+  modelRetries: 2
+  analyzerTimeoutMs: 30000
+  maxAnalyzerOutputBytes: 1000000
