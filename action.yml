@@ -1,0 +1,29 @@
+name: "Vetter code review"
+description: "Reviews open pull requests with an LLM and allowlisted static analyzers. Pushes with no matching open pull request are skipped."
+author: "vetter"
+
+inputs:
+  github-token:
+    description: "Token used to read the diff and write review comments, threads, and the Check Run. Usually secrets.GITHUB_TOKEN."
+    required: true
+  model-api-key:
+    description: "API key for the OpenAI-compatible review model."
+    required: false
+  model-base-url:
+    description: "Base URL for the OpenAI-compatible review model endpoint."
+    required: false
+  model-name:
+    description: "Model name to use for review; overrides the model configured in .vetter.yml."
+    required: false
+  config-path:
+    description: "Path to the repository's Vetter configuration file."
+    required: false
+    default: ".vetter.yml"
+
+runs:
+  using: "node20"
+  main: "dist/action/index.js"
+
+branding:
+  icon: "check-circle"
+  color: "purple"

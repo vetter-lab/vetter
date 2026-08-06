@@ -21,6 +21,8 @@ function makeExisting(overrides: Partial<ExistingFinding> = {}): ExistingFinding
   return {
     fingerprint: "fingerprint-a",
     ruleId: "no-console",
+    source: "eslint",
+    scopeKey: "eslint:no-console:src/example.ts",
     severity: "minor",
     title: "Avoid console statements",
     body: "Remove the console.log call.",

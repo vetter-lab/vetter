@@ -59,7 +59,7 @@ export const analyzerRegistry = {
   eslint: createEslintAnalyzer,
   ruff: createRuffAnalyzer,
   "golangci-lint": createGolangciLintAnalyzer
-} as const satisfies Record<ReviewSource extends "llm" ? never : ReviewSource, (processRunner: ProcessRunner) => AnalyzerProvider>;
+} as const satisfies Record<Exclude<ReviewSource, "llm">, (processRunner: ProcessRunner) => AnalyzerProvider>;
 
 export type AnalyzerName = keyof typeof analyzerRegistry;
 

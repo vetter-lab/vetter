@@ -1,0 +1,29 @@
+name: Vetter review
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+  push:
+
+permissions:
+  contents: read
+  pull-requests: write
+  checks: write
+
+concurrency:
+  group: vetter-${{ github.repository }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: zh-lx/vetter@main
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          model-api-key: ${{ secrets.VETTER_MODEL_API_KEY }}
+          model-base-url: ${{ vars.VETTER_MODEL_BASE_URL }}
+          model-name: ${{ vars.VETTER_MODEL_NAME }}

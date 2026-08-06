@@ -31,6 +31,8 @@ export interface Finding extends FindingDraft {
 export interface ExistingFinding {
   fingerprint: string;
   ruleId: string;
+  source: ReviewSource;
+  scopeKey: string;
   severity: Severity;
   title: string;
   body: string;
