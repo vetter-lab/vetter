@@ -1,6 +1,7 @@
 .worktrees/
 node_modules/
-dist/
+dist/*
+!dist/action/
 coverage/
 .env
 .env.*

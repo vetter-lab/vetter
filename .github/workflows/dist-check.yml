@@ -1,0 +1,38 @@
+name: dist/action consistency
+
+on:
+  pull_request:
+    paths:
+      - "src/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "tsconfig.json"
+      - "dist/action/**"
+      - ".github/workflows/dist-check.yml"
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.8.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm build:action
+
+      - name: Verify dist/action is up to date
+        run: |
+          if ! git diff --quiet -- dist/action; then
+            echo "dist/action/ is out of date. Run 'pnpm build:action' and commit the result."
+            git diff --stat -- dist/action
+            exit 1
+          fi
