@@ -1,11 +1,11 @@
 import * as core from "@actions/core";
 import * as github from "@actions/github";
 import { loadConfig } from "../../config/load.js";
-import { runReview } from "../../core/review.js";
-import { createOctokitGateway } from "../../github/octokit-gateway.js";
-import { createAnalyzerProvider } from "../../providers/analyzer.js";
-import { createOpenAiCompatibleModelProvider } from "../../providers/openai-compatible.js";
-import { runAnalyzerProcess } from "../../providers/process-analyzer.js";
+import { createAnalyzerProvider } from "../../integrations/analyzers/registry.js";
+import { runAnalyzerProcess } from "../../integrations/analyzers/process.js";
+import { createOctokitGateway } from "../../integrations/github/octokit-gateway.js";
+import { createOpenAiCompatibleModelProvider } from "../../integrations/models/openai-compatible.js";
+import { runReview } from "../../review/application/run-review.js";
 import { normalizeActionEvent } from "./context.js";
 
 const BOT_LOGIN = "github-actions[bot]";

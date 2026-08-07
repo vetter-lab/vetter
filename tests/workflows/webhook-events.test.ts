@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { normalizeWebhookEvent } from "../../src/runtimes/app/events.js";
-import type { GitHubGateway } from "../../src/github/gateway.js";
+import type { GitHubGateway } from "../../src/integrations/github/gateway.js";
 
 function reviewThreadPayload(action: "resolved" | "unresolved") {
   return {
