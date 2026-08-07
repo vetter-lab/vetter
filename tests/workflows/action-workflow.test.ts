@@ -14,3 +14,11 @@ test("shares one concurrency group between push and pull request runs", () => {
     "vetter-${{ github.repository }}-${{ github.head_ref || github.ref_name }}"
   );
 });
+
+test("refreshes the summary when a review thread is resolved or reopened", () => {
+  const workflow = YAML.parse(readFileSync(workflowPath, "utf8")) as {
+    on?: { pull_request_review_thread?: { types?: string[] } };
+  };
+
+  expect(workflow.on?.pull_request_review_thread?.types).toEqual(["resolved", "unresolved"]);
+});

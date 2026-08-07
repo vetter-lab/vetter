@@ -11,7 +11,7 @@ import { normalizeActionEvent } from "./context.js";
 const BOT_LOGIN = "github-actions[bot]";
 
 function resolveConfigRef(eventName: string, payload: Record<string, unknown>, sha: string): string {
-  if (eventName === "pull_request") {
+  if (eventName === "pull_request" || eventName === "pull_request_review_thread") {
     const pullRequest = payload.pull_request as { head?: { sha?: string } } | undefined;
     return pullRequest?.head?.sha ?? sha;
   }
@@ -33,7 +33,14 @@ async function run(): Promise<void> {
   const gateway = createOctokitGateway(octokit as unknown as Parameters<typeof createOctokitGateway>[0]);
 
   const { eventName, payload, repo, sha } = github.context;
-  const configRef = resolveConfigRef(eventName, payload as Record<string, unknown>, sha);
+  const payloadRecord = payload as Record<string, unknown>;
+  const sender = payloadRecord.sender as { login?: unknown } | undefined;
+  if (eventName === "pull_request_review_thread" && sender?.login === BOT_LOGIN) {
+    core.info("ignoring bot-authored review thread event");
+    return;
+  }
+
+  const configRef = resolveConfigRef(eventName, payloadRecord, sha);
 
   const repositoryYaml = await gateway.getFileContent({
     owner: repo.owner,

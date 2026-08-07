@@ -9,7 +9,7 @@ export interface ReviewContext {
   baseSha: string;
   headSha: string;
   eventId: string;
-  source: "pull_request" | "push";
+  source: "pull_request" | "pull_request_review_thread" | "push";
 }
 
 export interface FindingDraft {

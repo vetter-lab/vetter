@@ -40,6 +40,10 @@ And the one summary comment carries:
 <!-- vetter:summary:v1 -->
 ```
 
+Summary-only rows (findings without an inline review comment) also carry a
+hidden `vetter:summary-row:v1` marker so a review-thread state refresh can
+preserve them.
+
 Vetter only ever reads or mutates a comment that (a) is authored by a
 configured bot login and (b) contains a valid marker. Comments without a
 marker — including other bot comments and all human comments — are never
@@ -103,11 +107,16 @@ source of truth either way.
   permanently. Vetter never reopens a thread it didn't resolve itself,
   even if the same finding is detected again in a later run — as long as
   the fingerprint still matches, it's treated as intentionally dismissed.
+  When the App is subscribed to `pull_request_review_thread` or the Action
+  workflow includes that trigger, the summary and Check Run are refreshed
+  immediately from the webhook without rerunning providers.
 - **A finding that returns after Vetter resolved it as fixed, then
   regresses**: Vetter detects that the thread it previously resolved was
   bot-resolved (via `resolvedBy` or the marker's `bot-resolved` field),
   reopens the thread, and updates the comment — this is not treated as a
   suppression.
+- **A developer reopens a review thread**: the same lightweight sync changes
+  the row back to `open` and recalculates the Check Run.
 - **A failed or timed-out analyzer**: its findings are dropped for this
   run, but — critically — none of its previously reported findings are
   closed, because `reconcileFindings` only marks a finding `fixed` when

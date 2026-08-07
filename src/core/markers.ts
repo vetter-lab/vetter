@@ -1,9 +1,11 @@
-import type { ReviewSource, Severity } from "./types.js";
+import type { FindingState, ReviewSource, Severity } from "./types.js";
 import { parseSeverity } from "./severity.js";
 
 const FINDING_MARKER_PATTERN =
   /<!--\s*vetter:finding:v1\s+fingerprint="([^"]*)"\s+rule="([^"]*)"\s+severity="([^"]*)"\s+source="([^"]*)"\s+scope="([^"]*)"\s+title="([^"]*)"\s+bot-resolved="(true|false)"\s*-->/;
 const SUMMARY_MARKER_PATTERN = /<!--\s*vetter:summary:v1\s*-->/;
+const SUMMARY_ROW_MARKER_PATTERN =
+  /<!--\s*vetter:summary-row:v1\s+fingerprint="([^"]*)"\s+severity="([^"]*)"\s+title="([^"]*)"\s+path="([^"]*)"\s+line="(null|[0-9]+)"\s+state="(open|fixed|suppressed)"\s*-->/g;
 
 export const SUMMARY_MARKER = "<!-- vetter:summary:v1 -->";
 
@@ -28,6 +30,15 @@ export interface FindingMarkerFields {
    * GitHub's `resolvedBy` is unavailable; see `core/reconcile.ts`.
    */
   botResolved: boolean;
+}
+
+export interface SummaryRowMarkerFields {
+  fingerprint: string;
+  severity: Severity;
+  title: string;
+  path: string;
+  line: number | null;
+  state: FindingState;
 }
 
 /**
@@ -80,6 +91,38 @@ export function parseFindingMarker(body: string): FindingMarkerFields | null {
 
 export function isFindingComment(body: string): boolean {
   return parseFindingMarker(body) !== null;
+}
+
+export function buildSummaryRowMarker(fields: SummaryRowMarkerFields): string {
+  return [
+    "<!-- vetter:summary-row:v1",
+    "fingerprint=\"" + escapeAttr(fields.fingerprint) + "\"",
+    "severity=\"" + escapeAttr(fields.severity) + "\"",
+    "title=\"" + escapeAttr(fields.title) + "\"",
+    "path=\"" + escapeAttr(fields.path) + "\"",
+    "line=\"" + (fields.line === null ? "null" : String(fields.line)) + "\"",
+    "state=\"" + fields.state + "\"",
+    "-->"
+  ].join(" ");
+}
+
+export function parseSummaryRowMarkers(body: string): SummaryRowMarkerFields[] {
+  return Array.from(body.matchAll(SUMMARY_ROW_MARKER_PATTERN), (match) => {
+    const [, fingerprint, severity, title, path, line, state] = match;
+    const parsedSeverity = parseSeverity(severity ?? "");
+    if (!fingerprint || parsedSeverity === null || title === undefined || path === undefined || !state) {
+      return null;
+    }
+
+    return {
+      fingerprint,
+      severity: parsedSeverity,
+      title: unescapeAttr(title),
+      path: unescapeAttr(path),
+      line: line === "null" ? null : Number(line),
+      state: state as FindingState
+    };
+  }).filter((marker): marker is SummaryRowMarkerFields => marker !== null);
 }
 
 export function isSummaryComment(body: string): boolean {

@@ -6,7 +6,8 @@ Vetter runs as either a **GitHub App** (webhook-driven) or a **GitHub Action** (
 
 ## How it works
 
-1. A pull request event or a push to a branch with an open PR triggers a review.
+1. A pull request event or a push to a branch with an open PR triggers a review;
+   resolving or reopening a review thread refreshes the summary from GitHub state.
 2. Vetter loads `.vetter.yml` from the repository, merges it with built-in defaults and any runtime-level overrides.
 3. It fetches the incremental diff, runs the configured LLM and static analyzers concurrently, and normalizes the results into findings.
 4. It re-reads the PR head SHA immediately before mutating anything; a stale or superseded run is discarded (latest-wins).

@@ -1,6 +1,7 @@
 import type {
   PullRequestOpenedEvent,
   PullRequestReopenedEvent,
+  PullRequestReviewThreadEvent,
   PullRequestSynchronizeEvent,
   PushEvent
 } from "@octokit/webhooks-types";
@@ -14,6 +15,7 @@ type PullRequestEventPayload =
   | PullRequestSynchronizeEvent;
 
 const SUPPORTED_PULL_REQUEST_ACTIONS = new Set(["opened", "reopened", "synchronize"]);
+const SUPPORTED_REVIEW_THREAD_ACTIONS = new Set(["resolved", "unresolved"]);
 
 export interface NormalizeWebhookEventInput {
   eventName: string;
@@ -31,7 +33,7 @@ function toReviewContext(input: {
   baseSha: string;
   headSha: string;
   eventId: string;
-  source: "pull_request" | "push";
+  source: "pull_request" | "pull_request_review_thread" | "push";
 }): ReviewContext {
   return {
     repository: { owner: input.owner, name: input.name, fullName: input.fullName },
@@ -41,6 +43,28 @@ function toReviewContext(input: {
     eventId: input.eventId,
     source: input.source
   };
+}
+
+function normalizePullRequestReviewThreadEvent(
+  payload: PullRequestReviewThreadEvent,
+  deliveryId: string
+): ReviewContext[] {
+  if (!SUPPORTED_REVIEW_THREAD_ACTIONS.has(payload.action)) {
+    return [];
+  }
+
+  return [
+    toReviewContext({
+      owner: payload.repository.owner.login,
+      name: payload.repository.name,
+      fullName: payload.repository.full_name,
+      pullRequestNumber: payload.pull_request.number,
+      baseSha: payload.pull_request.base.sha,
+      headSha: payload.pull_request.head.sha,
+      eventId: deliveryId,
+      source: "pull_request_review_thread"
+    })
+  ];
 }
 
 function normalizePullRequestEvent(payload: PullRequestEventPayload, deliveryId: string): ReviewContext[] {
@@ -107,12 +131,16 @@ async function normalizePushEvent(
  * `ReviewContext`s. A push event resolves to the open PRs on its branch
  * (one context per PR) and produces none when no open PR matches, so the
  * caller never runs a review for a push with no PR (design doc section 4).
- * Any event that isn't a supported pull_request action or a push produces
- * no work.
+ * Review-thread resolution changes produce a summary-only context; any other
+ * event produces no work.
  */
 export async function normalizeWebhookEvent(input: NormalizeWebhookEventInput): Promise<ReviewContext[]> {
   if (input.eventName === "pull_request") {
     return normalizePullRequestEvent(input.payload as PullRequestEventPayload, input.deliveryId);
+  }
+
+  if (input.eventName === "pull_request_review_thread") {
+    return normalizePullRequestReviewThreadEvent(input.payload as PullRequestReviewThreadEvent, input.deliveryId);
   }
 
   if (input.eventName === "push") {
