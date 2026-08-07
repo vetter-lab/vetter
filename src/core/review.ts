@@ -191,8 +191,9 @@ export async function runReview(input: RunReviewInput): Promise<RunReviewResult>
 
   const changedFileEntries = await gateway.listChangedFiles(pullRequestRef);
   const changedPaths = changedFileEntries.map((file) => file.path);
-  const parsedDiff = parseChangedFiles(changedFileEntries.map(toSyntheticPatch).filter((patch) => patch.length > 0));
-  const rawDiff = changedFileEntries.map((file) => file.patch).join("\n");
+  const reviewPatches = changedFileEntries.map(toSyntheticPatch).filter((patch) => patch.length > 0);
+  const parsedDiff = parseChangedFiles(reviewPatches);
+  const reviewDiff = reviewPatches.join("\n");
 
   const tasks: ProviderTask[] = [];
 
@@ -200,7 +201,7 @@ export async function runReview(input: RunReviewInput): Promise<RunReviewResult>
     tasks.push({
       name: "llm",
       run: async () => {
-        const result = await modelProvider.review({ diff: rawDiff, contextFiles, model: config.review.model });
+        const result = await modelProvider.review({ diff: reviewDiff, contextFiles, model: config.review.model });
         return { findings: result.findings, scopeKeys: result.scopeKeys };
       }
     });
