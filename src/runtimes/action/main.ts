@@ -11,7 +11,7 @@ import { normalizeActionEvent } from "./context.js";
 const BOT_LOGIN = "github-actions[bot]";
 
 function resolveConfigRef(eventName: string, payload: Record<string, unknown>, sha: string): string {
-  if (eventName === "pull_request" || eventName === "pull_request_review_thread") {
+  if (eventName === "pull_request" || eventName === "pull_request_review_comment") {
     const pullRequest = payload.pull_request as { head?: { sha?: string } } | undefined;
     return pullRequest?.head?.sha ?? sha;
   }
@@ -35,8 +35,8 @@ async function run(): Promise<void> {
   const { eventName, payload, repo, sha } = github.context;
   const payloadRecord = payload as Record<string, unknown>;
   const sender = payloadRecord.sender as { login?: unknown } | undefined;
-  if (eventName === "pull_request_review_thread" && sender?.login === BOT_LOGIN) {
-    core.info("ignoring bot-authored review thread event");
+  if (eventName === "pull_request_review_comment" && sender?.login === BOT_LOGIN) {
+    core.info("ignoring bot-authored review comment event");
     return;
   }
 
