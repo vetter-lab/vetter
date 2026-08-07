@@ -66357,7 +66357,7 @@ class OpenAI {
         catch (err) {
             if (err instanceof error_OpenAIError)
                 throw err;
-            throw new error_OpenAIError(`Failed to get token from 'apiKey' function: ${err.message}`,
+            throw new error_OpenAIError(`Failed to get token from 'apiKey' function: ${err.message}`, 
             // @ts-ignore
             { cause: err });
         }
@@ -68187,3 +68187,4 @@ async function run() {
 run().catch((error) => {
     setFailed(error instanceof Error ? error.message : String(error));
 });
+
