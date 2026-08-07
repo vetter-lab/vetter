@@ -16,9 +16,10 @@ scenarios.
 | `suppressed` | A human resolved the thread themselves. | The thread is resolved and `resolvedBy` (or the fallback marker field) identifies a non-bot login. Vetter never reopens this automatically. |
 
 State transitions are computed by the pure function `reconcileFindings` in
-`src/core/reconcile.ts`, driven entirely by comparing this run's findings
-against `ExistingFinding`s reconstructed from GitHub thread/comment state
-(`toExistingFindings` in `src/core/review.ts`).
+`src/review/domain/reconciliation/reconcile.ts`, driven entirely by comparing
+this run's findings against `ExistingFinding`s reconstructed from GitHub
+thread/comment state (`toExistingFindings` in
+`src/review/application/review-state.ts`).
 
 ## Hidden markers
 
@@ -48,7 +49,7 @@ without a separate state store.
 
 ## Fingerprinting and matching
 
-A finding's identity (`src/core/fingerprint.ts`) is a SHA-256 digest of its
+A finding's identity (`src/review/domain/findings/fingerprint.ts`) is a SHA-256 digest of its
 rule ID, normalized path, normalized code anchor, and normalized title —
 deliberately **excluding the line number**, so a finding that moves within
 a file due to unrelated edits elsewhere keeps its existing comment thread
@@ -113,7 +114,7 @@ source of truth either way.
   closed, because `reconcileFindings` only marks a finding `fixed` when
   the specific provider/path scope is in `completeScopes`. A failed
   provider always fails the Check Run (see `evaluateCheckRun` in
-  `src/core/check-run.ts`), so a `success` conclusion is a reliable signal
+  `src/review/domain/reporting/check-run.ts`), so a `success` conclusion is a reliable signal
   that every configured provider actually ran to completion.
 
 ## Running the verification suite locally
