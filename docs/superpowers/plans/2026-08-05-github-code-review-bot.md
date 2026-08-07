@@ -890,7 +890,7 @@ permissions:
   checks: write
 
 concurrency:
-  group: vetter-${{ github.repository }}-${{ github.event.pull_request.number || github.ref }}
+  group: vetter-${{ github.repository }}-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:

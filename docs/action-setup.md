@@ -23,7 +23,7 @@ permissions:
   checks: write
 
 concurrency:
-  group: vetter-${{ github.repository }}-${{ github.event.pull_request.number || github.ref }}
+  group: vetter-${{ github.repository }}-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
@@ -72,10 +72,11 @@ secrets, never committed to `.vetter.yml`.
 
 The `concurrency` block is required, not optional. GitHub Actions has no
 built-in equivalent to the App runtime's in-memory scheduler, so
-`cancel-in-progress: true` on a group keyed by PR number (or ref, for
-pushes) is what enforces the same "latest-wins" rule: a new commit cancels
-the in-progress run for an older commit on the same PR before it can write
-stale comments.
+`cancel-in-progress: true` on a group keyed by the source branch enforces the
+same "latest-wins" rule across both triggers: `github.head_ref` supplies the
+branch for a pull request, while `github.ref_name` supplies the same branch
+name for a push. A new commit therefore cancels the older event's in-progress
+run before it can write duplicate or stale comments.
 
 ## 5. Analyzer prerequisites
 

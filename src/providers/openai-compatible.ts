@@ -1,6 +1,6 @@
 import OpenAI from "openai";
 import { z } from "zod";
-import { parseChangedFiles } from "../core/diff.js";
+import { findReviewAnchor, parseChangedFiles } from "../core/diff.js";
 import type { FindingDraft } from "../core/types.js";
 import type { ModelProvider, ModelReviewInput, ModelReviewResult } from "./model.js";
 import { buildReviewPrompt } from "./prompt.js";
@@ -45,11 +45,11 @@ const modelResponseSchema = z.object({
  * `temperature: 0` and `response_format: { type: "json_object" }`, and
  * validates the parsed response against `modelResponseSchema`.
  *
- * Malformed JSON, schema validation failures, and provider errors are
- * retried up to `config.maxRetries` additional times. If every attempt
- * fails, the returned promise rejects and no scope is reported as
- * completed, so callers never close existing findings based on a review
- * that never produced valid output.
+ * Malformed JSON, schema or diff-anchor validation failures, and provider
+ * errors are retried up to `config.maxRetries` additional times. If every
+ * attempt fails, the returned promise rejects and no scope is reported as
+ * completed, so callers never close existing findings based on a review that
+ * never produced valid output.
  */
 export function createOpenAiCompatibleModelProvider(
   config: OpenAiCompatibleConfig,
@@ -66,6 +66,8 @@ export function createOpenAiCompatibleModelProvider(
   return {
     async review(input: ModelReviewInput): Promise<ModelReviewResult> {
       const prompt = buildReviewPrompt(input);
+      const changedFiles = parseChangedFiles([input.diff]);
+      const scopeKeys = changedFiles.map((file) => `llm:${file.path}`);
       const totalAttempts = config.maxRetries + 1;
       let lastError: unknown;
 
@@ -89,6 +91,14 @@ export function createOpenAiCompatibleModelProvider(
           const parsedJson: unknown = JSON.parse(content);
           const parsed = modelResponseSchema.parse(parsedJson);
 
+          for (const finding of parsed.findings) {
+            if (!findReviewAnchor(changedFiles, finding.path, finding.line)) {
+              throw new Error(
+                `model finding targets a line outside the added diff: ${finding.path}:${String(finding.line)}`
+              );
+            }
+          }
+
           const findings: FindingDraft[] = parsed.findings.map((finding) => ({
             ruleId: finding.ruleId,
             severity: finding.severity,
@@ -100,9 +110,6 @@ export function createOpenAiCompatibleModelProvider(
             source: "llm",
             scopeKey: `llm:${finding.ruleId}:${finding.path}`
           }));
-
-          const changedFiles = parseChangedFiles([input.diff]);
-          const scopeKeys = changedFiles.map((file) => `llm:${file.path}`);
 
           return { findings, scopeKeys };
         } catch (error) {

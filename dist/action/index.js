@@ -54039,14 +54039,15 @@ async function runReview(input) {
     const pullRequestRef = toPullRequestRef(context);
     const changedFileEntries = await gateway.listChangedFiles(pullRequestRef);
     const changedPaths = changedFileEntries.map((file) => file.path);
-    const parsedDiff = parseChangedFiles(changedFileEntries.map(toSyntheticPatch).filter((patch) => patch.length > 0));
-    const rawDiff = changedFileEntries.map((file) => file.patch).join("\n");
+    const reviewPatches = changedFileEntries.map(toSyntheticPatch).filter((patch) => patch.length > 0);
+    const parsedDiff = parseChangedFiles(reviewPatches);
+    const reviewDiff = reviewPatches.join("\n");
     const tasks = [];
     if (config.review.enabled) {
         tasks.push({
             name: "llm",
             run: async () => {
-                const result = await modelProvider.review({ diff: rawDiff, contextFiles, model: config.review.model });
+                const result = await modelProvider.review({ diff: reviewDiff, contextFiles, model: config.review.model });
                 return { findings: result.findings, scopeKeys: result.scopeKeys };
             }
         });
@@ -67747,11 +67748,11 @@ const modelResponseSchema = object({
  * `temperature: 0` and `response_format: { type: "json_object" }`, and
  * validates the parsed response against `modelResponseSchema`.
  *
- * Malformed JSON, schema validation failures, and provider errors are
- * retried up to `config.maxRetries` additional times. If every attempt
- * fails, the returned promise rejects and no scope is reported as
- * completed, so callers never close existing findings based on a review
- * that never produced valid output.
+ * Malformed JSON, schema or diff-anchor validation failures, and provider
+ * errors are retried up to `config.maxRetries` additional times. If every
+ * attempt fails, the returned promise rejects and no scope is reported as
+ * completed, so callers never close existing findings based on a review that
+ * never produced valid output.
  */
 function createOpenAiCompatibleModelProvider(config, createChatCompletion) {
     const client = createChatCompletion
@@ -67762,6 +67763,8 @@ function createOpenAiCompatibleModelProvider(config, createChatCompletion) {
     return {
         async review(input) {
             const prompt = buildReviewPrompt(input);
+            const changedFiles = parseChangedFiles([input.diff]);
+            const scopeKeys = changedFiles.map((file) => `llm:${file.path}`);
             const totalAttempts = config.maxRetries + 1;
             let lastError;
             for (let attempt = 0; attempt < totalAttempts; attempt++) {
@@ -67781,6 +67784,11 @@ function createOpenAiCompatibleModelProvider(config, createChatCompletion) {
                     }
                     const parsedJson = JSON.parse(content);
                     const parsed = modelResponseSchema.parse(parsedJson);
+                    for (const finding of parsed.findings) {
+                        if (!findReviewAnchor(changedFiles, finding.path, finding.line)) {
+                            throw new Error(`model finding targets a line outside the added diff: ${finding.path}:${String(finding.line)}`);
+                        }
+                    }
                     const findings = parsed.findings.map((finding) => ({
                         ruleId: finding.ruleId,
                         severity: finding.severity,
@@ -67792,8 +67800,6 @@ function createOpenAiCompatibleModelProvider(config, createChatCompletion) {
                         source: "llm",
                         scopeKey: `llm:${finding.ruleId}:${finding.path}`
                     }));
-                    const changedFiles = parseChangedFiles([input.diff]);
-                    const scopeKeys = changedFiles.map((file) => `llm:${file.path}`);
                     return { findings, scopeKeys };
                 }
                 catch (error) {
