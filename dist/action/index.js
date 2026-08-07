@@ -54107,6 +54107,14 @@ async function runReview(input) {
         completeScopes,
         botLogins
     });
+    const existingSummary = await gateway.findSummaryComment({ ...pullRequestRef, botLogins });
+    if (existingSummary) {
+        await gateway.deleteIssueComment({
+            owner: pullRequestRef.owner,
+            repo: pullRequestRef.repo,
+            commentId: existingSummary.commentId
+        });
+    }
     await applyReconciliationPlan({ gateway, pullRequestRef, headSha: context.headSha, plan });
     const summaryBody = renderSummaryComment({
         rows: plan.rows,
@@ -54114,18 +54122,7 @@ async function runReview(input) {
         repo: pullRequestRef.repo,
         pullRequestNumber: pullRequestRef.number
     });
-    const existingSummary = await gateway.findSummaryComment({ ...pullRequestRef, botLogins });
-    if (existingSummary) {
-        await gateway.updateIssueComment({
-            owner: pullRequestRef.owner,
-            repo: pullRequestRef.repo,
-            commentId: existingSummary.commentId,
-            body: summaryBody
-        });
-    }
-    else {
-        await gateway.createIssueComment({ ...pullRequestRef, body: summaryBody });
-    }
+    await gateway.createIssueComment({ ...pullRequestRef, body: summaryBody });
     const evaluation = evaluateCheckRun({ rows: plan.rows, config, failures });
     await gateway.upsertCheckRun({
         owner: pullRequestRef.owner,
@@ -54323,6 +54320,13 @@ function createOctokitGateway(octokit) {
                 repo: input.repo,
                 comment_id: input.commentId,
                 body: input.body
+            });
+        },
+        async deleteIssueComment(input) {
+            await octokit.rest.issues.deleteComment({
+                owner: input.owner,
+                repo: input.repo,
+                comment_id: input.commentId
             });
         },
         async resolveThread(input) {
