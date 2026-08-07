@@ -21,7 +21,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: zh-lx/vetter@main
+      - uses: vetter-lab/vetter@main
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           model-api-key: ${{ secrets.VETTER_MODEL_API_KEY }}
