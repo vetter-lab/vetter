@@ -1,4 +1,4 @@
-import type { FindingDraft, ReviewSource } from "../core/types.js";
+import type { FindingDraft, ReviewSource, Severity } from "../core/types.js";
 import type { AnalyzerProvider, AnalyzerRunInput, AnalyzerRunResult } from "./analyzer.js";
 import type { ProcessRunner } from "./process-analyzer.js";
 
@@ -19,14 +19,14 @@ interface SemgrepOutput {
   results: SemgrepResultItem[];
 }
 
-function mapSeverity(raw: string | undefined): "critical" | "major" | "minor" {
+function mapSeverity(raw: string | undefined): Severity {
   switch ((raw ?? "").toUpperCase()) {
     case "ERROR":
-      return "critical";
+      return "P0";
     case "WARNING":
-      return "major";
+      return "P1";
     default:
-      return "minor";
+      return "P3";
   }
 }
 

@@ -1,5 +1,6 @@
 import type { ReviewConfig } from "../config/schema.js";
 import type { SummaryRow } from "./reconcile.js";
+import { SEVERITIES } from "./severity.js";
 
 export interface CheckRunEvaluation {
   conclusion: "success" | "failure";
@@ -12,8 +13,6 @@ export interface EvaluateCheckRunInput {
   config: ReviewConfig;
   failures: Array<{ provider: string; message: string }>;
 }
-
-const SEVERITIES = ["critical", "major", "minor"] as const;
 
 /**
  * A provider failure always fails the Check Run: since `reconcileFindings`

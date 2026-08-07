@@ -10,7 +10,50 @@ describe("loadConfig", () => {
 
     expect(result.review.model).toBe("external-model");
     expect(result.review.incremental).toBe(true);
-    expect(result.severity.major.blockMerge).toBe(false);
+    expect(result.severity.P1.blockMerge).toBe(false);
+  });
+
+  it("provides P0-P3 defaults and maps a legacy repository severity", () => {
+    const result = loadConfig({
+      repositoryText: "severity:\n  major:\n    blockMerge: true\n"
+    });
+
+    expect(result.severity.P0.blockMerge).toBe(false);
+    expect(result.severity.P1.blockMerge).toBe(true);
+    expect(result.severity.P2.blockMerge).toBe(false);
+    expect(result.severity.P3.blockMerge).toBe(false);
+  });
+
+  it("maps the legacy minor severity to the low-priority P3 level", () => {
+    const result = loadConfig({
+      repositoryText: "severity:\n  minor:\n    blockMerge: true\n"
+    });
+
+    expect(result.severity.P2.blockMerge).toBe(false);
+    expect(result.severity.P3.blockMerge).toBe(true);
+  });
+
+  it("lets a new key win over its legacy alias in one layer", () => {
+    const result = loadConfig({
+      repositoryText: [
+        "severity:",
+        "  major:",
+        "    blockMerge: true",
+        "  P1:",
+        "    blockMerge: false"
+      ].join("\n")
+    });
+
+    expect(result.severity.P1.blockMerge).toBe(false);
+  });
+
+  it("preserves external-layer precedence for a legacy alias", () => {
+    const result = loadConfig({
+      repositoryText: "severity:\n  P1:\n    blockMerge: false\n",
+      external: { severity: { major: { blockMerge: true } } }
+    });
+
+    expect(result.severity.P1.blockMerge).toBe(true);
   });
 
   it("rejects a repository config that attempts to disable the open-PR requirement", () => {

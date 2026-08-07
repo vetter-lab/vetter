@@ -1,4 +1,5 @@
 import type { ReviewSource, Severity } from "./types.js";
+import { parseSeverity } from "./severity.js";
 
 const FINDING_MARKER_PATTERN =
   /<!--\s*vetter:finding:v1\s+fingerprint="([^"]*)"\s+rule="([^"]*)"\s+severity="([^"]*)"\s+source="([^"]*)"\s+scope="([^"]*)"\s+title="([^"]*)"\s+bot-resolved="(true|false)"\s*-->/;
@@ -62,10 +63,14 @@ export function parseFindingMarker(body: string): FindingMarkerFields | null {
   if (!fingerprint || !severity || !source || scopeKey === undefined || title === undefined) {
     return null;
   }
+  const parsedSeverity = parseSeverity(severity);
+  if (parsedSeverity === null) {
+    return null;
+  }
   return {
     fingerprint,
     ruleId: ruleId ?? "",
-    severity: severity as Severity,
+    severity: parsedSeverity,
     source: source as ReviewSource,
     scopeKey,
     title: unescapeAttr(title),
@@ -74,7 +79,7 @@ export function parseFindingMarker(body: string): FindingMarkerFields | null {
 }
 
 export function isFindingComment(body: string): boolean {
-  return FINDING_MARKER_PATTERN.test(body);
+  return parseFindingMarker(body) !== null;
 }
 
 export function isSummaryComment(body: string): boolean {

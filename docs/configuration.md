@@ -38,11 +38,13 @@ events:
       - "**"
 
 severity:
-  critical:
+  P0:
     blockMerge: false
-  major:
+  P1:
     blockMerge: false
-  minor:
+  P2:
+    blockMerge: false
+  P3:
     blockMerge: false
 
 analyzers:
@@ -86,14 +88,26 @@ omitted, both runtimes are allowed to act.
 
 ### `severity`
 
-One entry per severity (`critical`, `major`, `minor`), each with:
+One entry per severity (`P0`, `P1`, `P2`, `P3`), each with:
 
 | Key | Type | Default | Notes |
 | --- | --- | --- | --- |
-| `blockMerge` | boolean | `false` for all three | When `true`, any **open** finding of that severity makes the `vetter / code-review` Check Run conclude `failure`. Repository branch protection must separately mark that Check Run as required for it to actually block merging. |
+| `blockMerge` | boolean | `false` for all four | When `true`, any **open** finding of that severity makes the `vetter / code-review` Check Run conclude `failure`. Repository branch protection must separately mark that Check Run as required for it to actually block merging. |
 
 By default, no severity blocks merging — Vetter is report-only until a
 repository opts in.
+
+Severity is ordered from `P0` (highest) through `P3` (lowest). `P0` covers
+critical security, data-loss, and correctness issues; `P1` covers high-impact
+logic, architecture, and performance issues; `P2` covers code-quality,
+maintainability, error-handling, and boundary issues; and `P3` covers concrete
+low-risk style or optional improvements.
+
+For backwards compatibility, repository and external configuration may still
+use `critical`, `major`, and `minor`. They are translated to `P0`, `P1`, and
+`P3` respectively. When both a legacy key and its canonical counterpart are
+provided in the same layer, the canonical key wins. New configuration should
+use the uppercase P0-P3 keys; `version: 1` remains valid.
 
 ### `analyzers`
 

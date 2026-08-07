@@ -1,6 +1,7 @@
 import YAML from "yaml";
 import type { RuntimeMode } from "../core/types.js";
 import { deepMerge } from "./merge.js";
+import { migrateSeverityConfigLayer } from "./migrate.js";
 import { assertNoSecretKeys, reviewConfigSchema, type ReviewConfig } from "./schema.js";
 
 export interface ConfigInput {
@@ -30,9 +31,10 @@ export const builtInDefaults = {
     }
   },
   severity: {
-    critical: { blockMerge: false },
-    major: { blockMerge: false },
-    minor: { blockMerge: false }
+    P0: { blockMerge: false },
+    P1: { blockMerge: false },
+    P2: { blockMerge: false },
+    P3: { blockMerge: false }
   },
   analyzers: [] as string[],
   limits: {
@@ -70,8 +72,9 @@ export function parseRepositoryYaml(text: string): Record<string, unknown> {
 
 export function loadConfig(input: ConfigInput): ReviewConfig {
   const defaults = builtInDefaults;
-  const repository = parseRepositoryYaml(input.repositoryText ?? "");
-  const merged = deepMerge(defaults, repository, input.external ?? {}) as Record<string, unknown>;
+  const repository = migrateSeverityConfigLayer(parseRepositoryYaml(input.repositoryText ?? ""));
+  const external = migrateSeverityConfigLayer(input.external ?? {});
+  const merged = deepMerge(defaults, repository, external) as Record<string, unknown>;
 
   const events = merged.events as { push?: { requireOpenPullRequest?: unknown } } | undefined;
   if (events?.push?.requireOpenPullRequest !== true) {

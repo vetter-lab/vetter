@@ -5,7 +5,7 @@ import type { ExistingFinding, FindingDraft } from "../../src/core/types.js";
 function makeDraft(overrides: Partial<FindingDraft> = {}): FindingDraft {
   return {
     ruleId: "no-console",
-    severity: "minor",
+    severity: "P2",
     title: "Avoid console statements",
     body: "Remove the console.log call.",
     path: "src/example.ts",
@@ -23,7 +23,7 @@ function makeExisting(overrides: Partial<ExistingFinding> = {}): ExistingFinding
     ruleId: "no-console",
     source: "eslint",
     scopeKey: "eslint:no-console:src/example.ts",
-    severity: "minor",
+    severity: "P2",
     title: "Avoid console statements",
     body: "Remove the console.log call.",
     path: "src/example.ts",
