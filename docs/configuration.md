@@ -47,7 +47,6 @@ severity:
 
 analyzers:
   - semgrep
-  - eslint
 
 limits:
   modelRetries: 2
@@ -103,6 +102,11 @@ Array of analyzer names to run, drawn from a fixed allowlist:
 outright (`loadConfig` throws) — this list can never be used to invoke an
 arbitrary command; analyzer adapters are a closed registry
 (`src/providers/analyzer.ts`), not a lookup keyed by this string alone.
+
+The example defaults to `semgrep` because it ships its own rules and does
+not require repository-local lint configuration. ESLint should only be added
+for repositories that already have a valid ESLint configuration and have the
+`eslint` executable available in the runtime.
 
 ### `limits`
 
