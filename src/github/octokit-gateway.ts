@@ -270,6 +270,14 @@ export function createOctokitGateway(octokit: Octokit): GitHubGateway {
       });
     },
 
+    async deleteIssueComment(input: { owner: string; repo: string; commentId: number }): Promise<void> {
+      await octokit.rest.issues.deleteComment({
+        owner: input.owner,
+        repo: input.repo,
+        comment_id: input.commentId
+      });
+    },
+
     async resolveThread(input: { threadId: string }): Promise<void> {
       await octokit.graphql(RESOLVE_THREAD_MUTATION, { threadId: input.threadId });
     },
