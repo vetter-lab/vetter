@@ -1,0 +1,111 @@
+import { describe, expect, it } from "vitest";
+import { computeFingerprint, matchExistingFinding } from "../../../../src/review/domain/findings/fingerprint.js";
+import { normalizeFinding } from "../../../../src/review/domain/findings/normalize.js";
+import type { ExistingFinding, FindingDraft } from "../../../../src/review/domain/types.js";
+
+function makeDraft(overrides: Partial<FindingDraft> = {}): FindingDraft {
+  return {
+    ruleId: "no-console",
+    severity: "P2",
+    title: "Avoid console statements",
+    body: "Remove the console.log call.",
+    path: "src/example.ts",
+    line: 12,
+    codeAnchor: "console.log('hi');",
+    source: "eslint",
+    scopeKey: "",
+    ...overrides
+  };
+}
+
+function makeExisting(overrides: Partial<ExistingFinding> = {}): ExistingFinding {
+  return {
+    fingerprint: "fingerprint-a",
+    ruleId: "no-console",
+    source: "eslint",
+    scopeKey: "eslint:no-console:src/example.ts",
+    severity: "P2",
+    title: "Avoid console statements",
+    body: "Remove the console.log call.",
+    path: "src/example.ts",
+    line: 12,
+    commentId: 1,
+    threadId: null,
+    isResolved: false,
+    resolvedByLogin: null,
+    lastAction: null,
+    state: "open",
+    ...overrides
+  };
+}
+
+describe("computeFingerprint", () => {
+  it("does not change when only the line number changes", () => {
+    const a = computeFingerprint(makeDraft({ line: 12 }));
+    const b = computeFingerprint(makeDraft({ line: 99 }));
+
+    expect(a).toBe(b);
+  });
+
+  it("changes when the rule id changes", () => {
+    const a = computeFingerprint(makeDraft());
+    const b = computeFingerprint(makeDraft({ ruleId: "no-debugger" }));
+
+    expect(a).not.toBe(b);
+  });
+
+  it("changes when the path changes", () => {
+    const a = computeFingerprint(makeDraft());
+    const b = computeFingerprint(makeDraft({ path: "src/other.ts" }));
+
+    expect(a).not.toBe(b);
+  });
+
+  it("changes when the title changes", () => {
+    const a = computeFingerprint(makeDraft());
+    const b = computeFingerprint(makeDraft({ title: "Avoid debugger statements" }));
+
+    expect(a).not.toBe(b);
+  });
+});
+
+describe("normalizeFinding", () => {
+  it("trims text, derives scopeKey, and attaches a fingerprint", () => {
+    const finding = normalizeFinding(makeDraft({ title: "  Avoid console statements  ", body: "  Remove it.  " }));
+
+    expect(finding.title).toBe("Avoid console statements");
+    expect(finding.body).toBe("Remove it.");
+    expect(finding.scopeKey).toBe("eslint:no-console:src/example.ts");
+    expect(finding.fingerprint).toBe(computeFingerprint(finding));
+  });
+
+  it("rejects an invalid severity", () => {
+    expect(() => normalizeFinding(makeDraft({ severity: "blocker" as never }))).toThrow();
+  });
+});
+
+describe("matchExistingFinding", () => {
+  it("matches on exact fingerprint", () => {
+    const finding = normalizeFinding(makeDraft());
+    const existing = [makeExisting({ fingerprint: finding.fingerprint })];
+
+    expect(matchExistingFinding(finding, existing)).toBe(existing[0]);
+  });
+
+  it("rejects an ambiguous rule/path fallback with no exact fingerprint match", () => {
+    const finding = normalizeFinding(makeDraft());
+    const existing = [
+      makeExisting({ fingerprint: "stale-a", commentId: 1 }),
+      makeExisting({ fingerprint: "stale-b", commentId: 2 })
+    ];
+
+    expect(matchExistingFinding(finding, existing)).toBeNull();
+  });
+
+  it("falls back to an unambiguous rule/path match when no exact fingerprint match exists", () => {
+    const finding = normalizeFinding(makeDraft());
+    const existing = [makeExisting({ fingerprint: "stale-a", commentId: 1 })];
+
+    expect(matchExistingFinding(finding, existing)).toBe(existing[0]);
+  });
+});

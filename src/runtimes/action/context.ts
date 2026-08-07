@@ -1,5 +1,5 @@
-import type { GitHubGateway } from "../../github/gateway.js";
-import type { ReviewContext } from "../../core/types.js";
+import type { GitHubGateway } from "../../integrations/github/gateway.js";
+import type { ReviewContext } from "../../review/domain/types.js";
 import { normalizeWebhookEvent } from "../app/events.js";
 
 export interface NormalizeActionEventInput {

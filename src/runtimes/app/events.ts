@@ -4,9 +4,9 @@ import type {
   PullRequestSynchronizeEvent,
   PushEvent
 } from "@octokit/webhooks-types";
-import { matchesAnyBranchPattern } from "../../core/branch-pattern.js";
-import type { ReviewContext } from "../../core/types.js";
-import type { GitHubGateway } from "../../github/gateway.js";
+import { matchesAnyBranchPattern } from "../../review/domain/branch-pattern.js";
+import type { ReviewContext } from "../../review/domain/types.js";
+import type { GitHubGateway } from "../../integrations/github/gateway.js";
 
 type PullRequestEventPayload =
   | PullRequestOpenedEvent

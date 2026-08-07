@@ -1,5 +1,5 @@
 import YAML from "yaml";
-import type { RuntimeMode } from "../core/types.js";
+import type { RuntimeMode } from "./types.js";
 import { deepMerge } from "./merge.js";
 import { migrateSeverityConfigLayer } from "./migrate.js";
 import { assertNoSecretKeys, reviewConfigSchema, type ReviewConfig } from "./schema.js";
