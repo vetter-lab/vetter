@@ -1,8 +1,9 @@
 import { createHash } from "node:crypto";
 import { normalize } from "./normalize.js";
+import { SEVERITIES } from "./severity.js";
 import type { ExistingFinding, Finding, FindingDraft, Severity } from "./types.js";
 
-const VALID_SEVERITIES: readonly Severity[] = ["critical", "major", "minor"];
+const VALID_SEVERITIES: readonly Severity[] = SEVERITIES;
 
 /**
  * Versioned identity fingerprint for a finding. Deliberately excludes the

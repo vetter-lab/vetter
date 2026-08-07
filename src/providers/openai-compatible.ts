@@ -27,7 +27,7 @@ export type ChatCompletionCreator = (params: {
 
 const findingSchema = z.object({
   ruleId: z.string(),
-  severity: z.enum(["critical", "major", "minor"]),
+  severity: z.enum(["P0", "P1", "P2", "P3"]),
   title: z.string(),
   body: z.string(),
   path: z.string(),

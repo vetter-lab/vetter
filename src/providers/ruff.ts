@@ -83,7 +83,7 @@ export function createRuffAnalyzer(processRunner: ProcessRunner): AnalyzerProvid
           readLine(input.repositoryPath, relativePath, diagnostic.location.row) || diagnostic.message;
         return {
           ruleId,
-          severity: "minor",
+          severity: "P3",
           title: diagnostic.message.split("\n")[0] ?? ruleId,
           body: diagnostic.message,
           path: relativePath,

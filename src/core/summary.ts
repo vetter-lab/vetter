@@ -1,8 +1,9 @@
 import type { SummaryRow } from "./reconcile.js";
 import { SUMMARY_MARKER } from "./markers.js";
+import { SEVERITIES } from "./severity.js";
 import type { FindingState, Severity } from "./types.js";
 
-const SEVERITY_ORDER: Record<Severity, number> = { critical: 0, major: 1, minor: 2 };
+const SEVERITY_ORDER = Object.fromEntries(SEVERITIES.map((severity, index) => [severity, index])) as Record<Severity, number>;
 const STATE_LABEL: Record<FindingState, string> = {
   open: "🔴 open",
   fixed: "✅ fixed",

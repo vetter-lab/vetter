@@ -19,9 +19,10 @@ export const reviewConfigSchema = z.object({
     })
   }),
   severity: z.object({
-    critical: severityRule,
-    major: severityRule,
-    minor: severityRule
+    P0: severityRule,
+    P1: severityRule,
+    P2: severityRule,
+    P3: severityRule
   }),
   analyzers: z.array(z.enum(["semgrep", "eslint", "ruff", "golangci-lint"])),
   limits: z.object({

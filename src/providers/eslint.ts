@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { isAbsolute, join, relative } from "node:path";
-import type { FindingDraft, ReviewSource } from "../core/types.js";
+import type { FindingDraft, ReviewSource, Severity } from "../core/types.js";
 import type { AnalyzerProvider, AnalyzerRunInput, AnalyzerRunResult } from "./analyzer.js";
 import type { ProcessRunner } from "./process-analyzer.js";
 
@@ -18,8 +18,8 @@ interface EslintFileResult {
   messages: EslintMessage[];
 }
 
-function mapSeverity(severity: number): "critical" | "major" | "minor" {
-  return severity >= 2 ? "major" : "minor";
+function mapSeverity(severity: number): Severity {
+  return severity >= 2 ? "P1" : "P3";
 }
 
 function toRelativePath(repositoryPath: string, rawPath: string): string {

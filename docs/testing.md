@@ -28,6 +28,12 @@ Every inline comment Vetter writes carries a hidden HTML comment:
 <!-- vetter:finding:v1 fingerprint="..." rule="..." severity="..." source="..." scope="..." title="..." bot-resolved="..." -->
 ```
 
+Current comments write canonical `P0`, `P1`, `P2`, and `P3` severity values.
+Comments written by older Vetter versions with `critical`, `major`, or `minor`
+are translated to `P0`, `P1`, or `P3` while they are read. Unknown severity
+values are not treated as Vetter-managed markers. The marker format remains
+`v1`, so existing comment state can be reconciled without a separate migration.
+
 And the one summary comment carries:
 
 ```text

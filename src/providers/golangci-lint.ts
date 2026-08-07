@@ -1,5 +1,5 @@
 import { isAbsolute, relative } from "node:path";
-import type { FindingDraft, ReviewSource } from "../core/types.js";
+import type { FindingDraft, ReviewSource, Severity } from "../core/types.js";
 import type { AnalyzerProvider, AnalyzerRunInput, AnalyzerRunResult } from "./analyzer.js";
 import type { ProcessRunner } from "./process-analyzer.js";
 
@@ -21,14 +21,12 @@ function toRelativePath(repositoryPath: string, rawPath: string): string {
   return isAbsolute(rawPath) ? relative(repositoryPath, rawPath) : rawPath;
 }
 
-function mapSeverity(raw: string | undefined): "critical" | "major" | "minor" {
+function mapSeverity(raw: string | undefined): Severity {
   switch ((raw ?? "").toLowerCase()) {
     case "error":
-      return "major";
-    case "warning":
-      return "minor";
+      return "P1";
     default:
-      return "minor";
+      return "P3";
   }
 }
 

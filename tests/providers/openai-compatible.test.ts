@@ -19,7 +19,7 @@ const DIFF = [
   " line15"
 ].join("\n");
 
-function completion(path: string, line: number) {
+function completion(path: string, line: number, severity = "P1") {
   return {
     choices: [
       {
@@ -28,7 +28,7 @@ function completion(path: string, line: number) {
             findings: [
               {
                 ruleId: "example-rule",
-                severity: "major",
+                severity,
                 title: "Example finding",
                 body: "Fix the added line.",
                 path,
@@ -65,5 +65,23 @@ describe("createOpenAiCompatibleModelProvider", () => {
     expect(attempts).toBe(3);
     expect(result.findings).toHaveLength(1);
     expect(result.findings[0]).toMatchObject({ path: "src/example.ts", line: 12 });
+  });
+
+  it("retries a model response that uses a legacy severity label", async () => {
+    const responses = [completion("src/example.ts", 12, "major"), completion("src/example.ts", 12, "P3")];
+    let attempts = 0;
+    const createCompletion: ChatCompletionCreator = async () => {
+      attempts += 1;
+      return responses.shift()!;
+    };
+    const provider = createOpenAiCompatibleModelProvider(
+      { apiKey: "test", maxRetries: 1 },
+      createCompletion
+    );
+
+    const result = await provider.review({ diff: DIFF, contextFiles: [], model: "test-model" });
+
+    expect(attempts).toBe(2);
+    expect(result.findings[0]?.severity).toBe("P3");
   });
 });

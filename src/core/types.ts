@@ -1,4 +1,4 @@
-export type Severity = "critical" | "major" | "minor";
+export type Severity = "P0" | "P1" | "P2" | "P3";
 export type ReviewSource = "llm" | "semgrep" | "eslint" | "ruff" | "golangci-lint";
 export type FindingState = "open" | "fixed" | "suppressed";
 export type RuntimeMode = "app" | "action";

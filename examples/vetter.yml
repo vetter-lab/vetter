@@ -14,11 +14,13 @@ events:
       - "**"
 
 severity:
-  critical:
+  P0:
     blockMerge: false
-  major:
+  P1:
     blockMerge: false
-  minor:
+  P2:
+    blockMerge: false
+  P3:
     blockMerge: false
 
 analyzers:
