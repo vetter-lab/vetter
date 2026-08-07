@@ -17,20 +17,34 @@ export function computeFingerprint(
 }
 
 /**
+ * Providers can report the same logical finding more than once. Keep the
+ * first normalized finding for a fingerprint so one review run cannot create
+ * duplicate inline comments or summary rows.
+ */
+export function deduplicateFindings(findings: Finding[]): Finding[] {
+  const seen = new Set<string>();
+  return findings.filter((finding) => {
+    if (seen.has(finding.fingerprint)) {
+      return false;
+    }
+    seen.add(finding.fingerprint);
+    return true;
+  });
+}
+
+/**
  * Matches a normalized finding against existing findings for the same PR.
- * Prefers an exact fingerprint match. If none exists, falls back to
+ * Prefers the first exact fingerprint match. If none exists, falls back to
  * matching by rule + path, but only when that fallback is unambiguous:
- * if more than one existing finding shares the same rule and path (and
- * none has the exact fingerprint), there is no reliable way to tell which
- * one the new finding corresponds to, so the match is rejected.
+ * if more than one existing finding shares the same rule and path, there is
+ * no reliable way to tell which one the new finding corresponds to, so the
+ * match is rejected. Exact duplicate persisted comments are the same logical
+ * finding, so the first one is used as the canonical comment.
  */
 export function matchExistingFinding(finding: Finding, existing: ExistingFinding[]): ExistingFinding | null {
-  const exactMatches = existing.filter((candidate) => candidate.fingerprint === finding.fingerprint);
-  if (exactMatches.length === 1) {
-    return exactMatches[0] ?? null;
-  }
-  if (exactMatches.length > 1) {
-    return null;
+  const exactMatch = existing.find((candidate) => candidate.fingerprint === finding.fingerprint);
+  if (exactMatch) {
+    return exactMatch;
   }
 
   const fallbackMatches = existing.filter(

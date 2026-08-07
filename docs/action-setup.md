@@ -80,6 +80,11 @@ branch for a pull request, while `github.ref_name` supplies the same branch
 name for a push. A new commit therefore cancels the older event's in-progress
 run before it can write duplicate or stale comments.
 
+Keep the key branch-based for both events. Do not use
+`${{ github.event.pull_request.number || github.ref }}`: a pull request event
+then keys by PR number while a push event keys by branch ref, allowing both
+reviews for the same commit to run concurrently.
+
 ## 5. Analyzer prerequisites
 
 `actions/checkout@v4` must run before the Vetter step so that any

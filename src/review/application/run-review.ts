@@ -5,6 +5,7 @@ import type { AnalyzerProvider } from "../../integrations/analyzers/types.js";
 import type { ModelProvider } from "../../integrations/models/model.js";
 import { findReviewAnchor } from "../domain/diff/anchor.js";
 import { parseChangedFiles } from "../domain/diff/parser.js";
+import { deduplicateFindings } from "../domain/findings/fingerprint.js";
 import { normalizeFinding } from "../domain/findings/normalize.js";
 import { evaluateCheckRun } from "../domain/reporting/check-run.js";
 import { parseSummaryRowMarkers } from "../domain/reconciliation/markers.js";
@@ -266,7 +267,7 @@ export async function runReview(input: RunReviewInput): Promise<RunReviewResult>
     }
   });
 
-  const currentFindings = drafts.map((draft) => normalizeFinding(draft));
+  const currentFindings = deduplicateFindings(drafts.map((draft) => normalizeFinding(draft)));
 
   if (signal?.aborted) {
     return { status: "aborted" };

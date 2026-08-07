@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { computeFingerprint, matchExistingFinding } from "../../../../src/review/domain/findings/fingerprint.js";
+import {
+  computeFingerprint,
+  deduplicateFindings,
+  matchExistingFinding
+} from "../../../../src/review/domain/findings/fingerprint.js";
 import { normalizeFinding } from "../../../../src/review/domain/findings/normalize.js";
 import type { ExistingFinding, FindingDraft } from "../../../../src/review/domain/types.js";
 
@@ -84,6 +88,15 @@ describe("normalizeFinding", () => {
   });
 });
 
+describe("deduplicateFindings", () => {
+  it("keeps one finding when a provider reports the same fingerprint twice", () => {
+    const first = normalizeFinding(makeDraft({ line: 12 }));
+    const duplicate = normalizeFinding(makeDraft({ line: 99 }));
+
+    expect(deduplicateFindings([first, duplicate])).toEqual([first]);
+  });
+});
+
 describe("matchExistingFinding", () => {
   it("matches on exact fingerprint", () => {
     const finding = normalizeFinding(makeDraft());
@@ -105,6 +118,16 @@ describe("matchExistingFinding", () => {
   it("falls back to an unambiguous rule/path match when no exact fingerprint match exists", () => {
     const finding = normalizeFinding(makeDraft());
     const existing = [makeExisting({ fingerprint: "stale-a", commentId: 1 })];
+
+    expect(matchExistingFinding(finding, existing)).toBe(existing[0]);
+  });
+
+  it("uses one exact match when persisted state contains duplicate comments", () => {
+    const finding = normalizeFinding(makeDraft());
+    const existing = [
+      makeExisting({ fingerprint: finding.fingerprint, commentId: 1 }),
+      makeExisting({ fingerprint: finding.fingerprint, commentId: 2 })
+    ];
 
     expect(matchExistingFinding(finding, existing)).toBe(existing[0]);
   });
