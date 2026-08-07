@@ -53,6 +53,8 @@ export interface GitHubGateway {
 
   updateIssueComment(input: { owner: string; repo: string; commentId: number; body: string }): Promise<void>;
 
+  deleteIssueComment(input: { owner: string; repo: string; commentId: number }): Promise<void>;
+
   resolveThread(input: { threadId: string }): Promise<void>;
 
   reopenThread(input: { threadId: string }): Promise<void>;
