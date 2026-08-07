@@ -33,6 +33,8 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - name: Install semgrep
+        run: pip install semgrep
       - uses: vetter-lab/vetter@main
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -75,15 +77,28 @@ pushes) is what enforces the same "latest-wins" rule: a new commit cancels
 the in-progress run for an older commit on the same PR before it can write
 stale comments.
 
-## 5. Checkout requirements for analyzers
+## 5. Analyzer prerequisites
 
 `actions/checkout@v4` must run before the Vetter step so that any
-configured static analyzers (Semgrep, ESLint, ruff, golangci-lint) have real
-files on disk to scan — the Action runtime reads analyzer input from
-`GITHUB_WORKSPACE`, unlike the App runtime, which does an ephemeral shallow
-clone per review. `fetch-depth: 0` is recommended so incremental diffing has
-full history available if a future analyzer needs it; a shallow checkout
-also works if you're only running today's supported analyzers.
+configured static analyzers have real files on disk to scan — the Action
+runtime reads analyzer input from `GITHUB_WORKSPACE`, unlike the App
+runtime, which does an ephemeral shallow clone per review. `fetch-depth: 0`
+is recommended so incremental diffing has full history available if a future
+analyzer needs it; a shallow checkout also works if you're only running
+semgrep.
+
+The default example enables `semgrep`, so the workflow installs it before
+the Vetter step with `pip install semgrep`. Other analyzers must be installed
+the same way before the Vetter step if they are enabled in `.vetter.yml`:
+
+- `semgrep` — `pip install semgrep`
+- `eslint` — install with the repository's package manager, and require the
+  repository to have an ESLint configuration file
+- `ruff` — `pip install ruff`
+- `golangci-lint` — install the `golangci-lint` binary
+
+Semgrep is a good default because it ships its own rule set and does not
+depend on repository-local lint configuration.
 
 ## 6. Push events with no open PR
 
