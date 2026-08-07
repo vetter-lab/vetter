@@ -15,10 +15,10 @@ test("shares one concurrency group between push and pull request runs", () => {
   );
 });
 
-test("refreshes the summary when a review thread is resolved or reopened", () => {
+test("refreshes the summary when someone replies on a review comment thread", () => {
   const workflow = YAML.parse(readFileSync(workflowPath, "utf8")) as {
-    on?: { pull_request_review_thread?: { types?: string[] } };
+    on?: { pull_request_review_comment?: { types?: string[] } };
   };
 
-  expect(workflow.on?.pull_request_review_thread?.types).toEqual(["resolved", "unresolved"]);
+  expect(workflow.on?.pull_request_review_comment?.types).toEqual(["created"]);
 });

@@ -101,8 +101,8 @@ describe("syncReviewSummary", () => {
         pullRequestNumber: 1,
         baseSha: "base-sha",
         headSha: "head-sha",
-        eventId: "thread-event",
-        source: "pull_request_review_thread"
+        eventId: "comment-event",
+        source: "pull_request_review_comment"
       },
       config: loadConfig({ runtime: "action" }),
       botLogins: new Set(["vetter[bot]"])
