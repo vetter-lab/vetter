@@ -17,6 +17,7 @@ run entirely on the App with no Action workflow at all.
    - Metadata: Read-only
 5. Under **Subscribe to events**, enable:
    - Pull request
+   - Pull request review thread
    - Push
 6. Choose which repositories the App is installed on (all or selected).
 

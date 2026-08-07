@@ -1,5 +1,5 @@
 import type { SummaryRow } from "../reconciliation/reconcile.js";
-import { SUMMARY_MARKER } from "../reconciliation/markers.js";
+import { buildSummaryRowMarker, SUMMARY_MARKER } from "../reconciliation/markers.js";
 import { SEVERITIES } from "../severity.js";
 import type { FindingState, Severity } from "../types.js";
 
@@ -73,6 +73,21 @@ function renderTable(rows: SummaryRow[], input: RenderSummaryInput, compact: boo
   return [header, ...lines].join("\n");
 }
 
+function renderSummaryOnlyMarkers(rows: SummaryRow[]): string[] {
+  return rows
+    .filter((row) => row.commentId === null)
+    .map((row) =>
+      buildSummaryRowMarker({
+        fingerprint: row.fingerprint,
+        severity: row.severity,
+        title: row.title,
+        path: row.path,
+        line: row.line,
+        state: row.state
+      })
+    );
+}
+
 /**
  * Rebuilds the whole Vetter summary comment from this run's reconciled
  * rows. There is no partial edit: every run replaces the full body, which
@@ -81,11 +96,26 @@ function renderTable(rows: SummaryRow[], input: RenderSummaryInput, compact: boo
  */
 export function renderSummaryComment(input: RenderSummaryInput): string {
   const sorted = sortRows(input.rows);
+  const persistedSummaryOnly = renderSummaryOnlyMarkers(sorted);
 
-  const full = [SUMMARY_MARKER, "", "## Vetter review summary", "", renderTable(sorted, input, false)].join("\n");
+  const full = [
+    SUMMARY_MARKER,
+    ...persistedSummaryOnly,
+    "",
+    "## Vetter review summary",
+    "",
+    renderTable(sorted, input, false)
+  ].join("\n");
   if (full.length <= MAX_COMMENT_LENGTH) {
     return full;
   }
 
-  return [SUMMARY_MARKER, "", "## Vetter review summary", "", renderTable(sorted, input, true)].join("\n");
+  return [
+    SUMMARY_MARKER,
+    ...persistedSummaryOnly,
+    "",
+    "## Vetter review summary",
+    "",
+    renderTable(sorted, input, true)
+  ].join("\n");
 }

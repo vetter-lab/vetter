@@ -53873,6 +53873,7 @@ const runAnalyzerProcess = (input) => {
 
 const FINDING_MARKER_PATTERN = /<!--\s*vetter:finding:v1\s+fingerprint="([^"]*)"\s+rule="([^"]*)"\s+severity="([^"]*)"\s+source="([^"]*)"\s+scope="([^"]*)"\s+title="([^"]*)"\s+bot-resolved="(true|false)"\s*-->/;
 const SUMMARY_MARKER_PATTERN = /<!--\s*vetter:summary:v1\s*-->/;
+const SUMMARY_ROW_MARKER_PATTERN = /<!--\s*vetter:summary-row:v1\s+fingerprint="([^"]*)"\s+severity="([^"]*)"\s+title="([^"]*)"\s+path="([^"]*)"\s+line="(null|[0-9]+)"\s+state="(open|fixed|suppressed)"\s*-->/g;
 const SUMMARY_MARKER = "<!-- vetter:summary:v1 -->";
 function escapeAttr(value) {
     return value.replace(/"/g, "&quot;");
@@ -53928,6 +53929,35 @@ function parseFindingMarker(body) {
 }
 function isFindingComment(body) {
     return parseFindingMarker(body) !== null;
+}
+function buildSummaryRowMarker(fields) {
+    return [
+        "<!-- vetter:summary-row:v1",
+        "fingerprint=\"" + escapeAttr(fields.fingerprint) + "\"",
+        "severity=\"" + escapeAttr(fields.severity) + "\"",
+        "title=\"" + escapeAttr(fields.title) + "\"",
+        "path=\"" + escapeAttr(fields.path) + "\"",
+        "line=\"" + (fields.line === null ? "null" : String(fields.line)) + "\"",
+        "state=\"" + fields.state + "\"",
+        "-->"
+    ].join(" ");
+}
+function parseSummaryRowMarkers(body) {
+    return Array.from(body.matchAll(SUMMARY_ROW_MARKER_PATTERN), (match) => {
+        const [, fingerprint, severity, title, path, line, state] = match;
+        const parsedSeverity = parseSeverity(severity ?? "");
+        if (!fingerprint || parsedSeverity === null || title === undefined || path === undefined || !state) {
+            return null;
+        }
+        return {
+            fingerprint,
+            severity: parsedSeverity,
+            title: unescapeAttr(title),
+            path: unescapeAttr(path),
+            line: line === "null" ? null : Number(line),
+            state: state
+        };
+    }).filter((marker) => marker !== null);
 }
 function isSummaryComment(body) {
     return SUMMARY_MARKER_PATTERN.test(body);
@@ -67737,6 +67767,18 @@ function renderTable(rows, input, compact) {
     });
     return [header, ...lines].join("\n");
 }
+function renderSummaryOnlyMarkers(rows) {
+    return rows
+        .filter((row) => row.commentId === null)
+        .map((row) => buildSummaryRowMarker({
+        fingerprint: row.fingerprint,
+        severity: row.severity,
+        title: row.title,
+        path: row.path,
+        line: row.line,
+        state: row.state
+    }));
+}
 /**
  * Rebuilds the whole Vetter summary comment from this run's reconciled
  * rows. There is no partial edit: every run replaces the full body, which
@@ -67745,11 +67787,26 @@ function renderTable(rows, input, compact) {
  */
 function renderSummaryComment(input) {
     const sorted = sortRows(input.rows);
-    const full = [SUMMARY_MARKER, "", "## Vetter review summary", "", renderTable(sorted, input, false)].join("\n");
+    const persistedSummaryOnly = renderSummaryOnlyMarkers(sorted);
+    const full = [
+        SUMMARY_MARKER,
+        ...persistedSummaryOnly,
+        "",
+        "## Vetter review summary",
+        "",
+        renderTable(sorted, input, false)
+    ].join("\n");
     if (full.length <= MAX_COMMENT_LENGTH) {
         return full;
     }
-    return [SUMMARY_MARKER, "", "## Vetter review summary", "", renderTable(sorted, input, true)].join("\n");
+    return [
+        SUMMARY_MARKER,
+        ...persistedSummaryOnly,
+        "",
+        "## Vetter review summary",
+        "",
+        renderTable(sorted, input, true)
+    ].join("\n");
 }
 
 ;// CONCATENATED MODULE: ./src/review/application/review-comments.ts
@@ -67841,6 +67898,7 @@ function toExistingFindings(snapshot, botLogins) {
 
 
 
+
 /**
  * Reconstructs a full unified-diff-with-headers string for one file from
  * GitHub's per-file `patch` field, which contains only `@@` hunks. `parse-diff`
@@ -67862,6 +67920,92 @@ function toPullRequestRef(context) {
         number: context.pullRequestNumber
     };
 }
+function toSummaryRow(existing) {
+    return {
+        fingerprint: existing.fingerprint,
+        severity: existing.severity,
+        title: existing.title,
+        path: existing.path,
+        line: existing.line,
+        state: existing.state,
+        commentId: existing.commentId
+    };
+}
+function toPersistedSummaryRow(input) {
+    return {
+        fingerprint: input.fingerprint,
+        severity: input.severity,
+        title: input.title,
+        path: input.path,
+        line: input.line,
+        state: input.state,
+        commentId: null
+    };
+}
+/**
+ * Refreshes the summary and Check Run from the persisted GitHub state only.
+ * Review-thread webhook deliveries use this path because resolving a thread
+ * does not change the code being reviewed and does not require providers to
+ * run again.
+ */
+async function syncReviewSummary(input) {
+    const { gateway, context, config, botLogins, signal } = input;
+    const pullRequestRef = toPullRequestRef(context);
+    if (signal?.aborted) {
+        return { status: "aborted" };
+    }
+    const freshPullRequest = await gateway.getPullRequest(pullRequestRef);
+    if (freshPullRequest.headSha !== context.headSha) {
+        return { status: "stale" };
+    }
+    if (signal?.aborted) {
+        return { status: "aborted" };
+    }
+    const reviewState = await gateway.listReviewState({ ...pullRequestRef, botLogins });
+    const existingSummary = await gateway.findSummaryComment({ ...pullRequestRef, botLogins });
+    const rowsByFingerprint = new Map();
+    const persistedRows = existingSummary ? parseSummaryRowMarkers(existingSummary.body).map(toPersistedSummaryRow) : [];
+    for (const row of persistedRows) {
+        rowsByFingerprint.set(row.fingerprint, row);
+    }
+    for (const row of toExistingFindings(reviewState, botLogins).map(toSummaryRow)) {
+        rowsByFingerprint.set(row.fingerprint, row);
+    }
+    const rows = [...rowsByFingerprint.values()];
+    const summaryBody = renderSummaryComment({
+        rows,
+        owner: pullRequestRef.owner,
+        repo: pullRequestRef.repo,
+        pullRequestNumber: pullRequestRef.number
+    });
+    if (signal?.aborted) {
+        return { status: "aborted" };
+    }
+    if (existingSummary) {
+        await gateway.updateIssueComment({
+            owner: pullRequestRef.owner,
+            repo: pullRequestRef.repo,
+            commentId: existingSummary.commentId,
+            body: summaryBody
+        });
+    }
+    else {
+        await gateway.createIssueComment({ ...pullRequestRef, body: summaryBody });
+    }
+    if (signal?.aborted) {
+        return { status: "aborted" };
+    }
+    const evaluation = evaluateCheckRun({ rows, severity: config.severity, failures: [] });
+    await gateway.upsertCheckRun({
+        owner: pullRequestRef.owner,
+        repo: pullRequestRef.repo,
+        headSha: context.headSha,
+        conclusion: evaluation.conclusion,
+        title: evaluation.title,
+        summary: evaluation.summary
+    });
+    return { status: "completed", conclusion: evaluation.conclusion, rows };
+}
 /**
  * Orchestrates one review run end to end: loads the diff and provider
  * findings, guards against a stale head SHA, reconciles against existing
@@ -67875,6 +68019,15 @@ function toPullRequestRef(context) {
 async function runReview(input) {
     const { gateway, context, config, modelProvider, analyzerProviders, botLogins, repositoryPath, contextFiles, signal } = input;
     const pullRequestRef = toPullRequestRef(context);
+    if (context.source === "pull_request_review_thread") {
+        return syncReviewSummary({
+            gateway,
+            context,
+            config,
+            botLogins,
+            ...(signal ? { signal } : {})
+        });
+    }
     const changedFileEntries = await gateway.listChangedFiles(pullRequestRef);
     const changedPaths = changedFileEntries.map((file) => file.path);
     const reviewPatches = changedFileEntries.map(toSyntheticPatch).filter((patch) => patch.length > 0);
@@ -67954,6 +68107,9 @@ async function runReview(input) {
             commentId: existingSummary.commentId
         });
     }
+    if (signal?.aborted) {
+        return { status: "aborted" };
+    }
     await applyReconciliationPlan({ gateway, pullRequestRef, headSha: context.headSha, plan });
     const summaryBody = renderSummaryComment({
         rows: plan.rows,
@@ -68010,6 +68166,7 @@ function matchesAnyBranchPattern(branch, patterns) {
 ;// CONCATENATED MODULE: ./src/runtimes/app/events.ts
 
 const SUPPORTED_PULL_REQUEST_ACTIONS = new Set(["opened", "reopened", "synchronize"]);
+const SUPPORTED_REVIEW_THREAD_ACTIONS = new Set(["resolved", "unresolved"]);
 function toReviewContext(input) {
     return {
         repository: { owner: input.owner, name: input.name, fullName: input.fullName },
@@ -68019,6 +68176,23 @@ function toReviewContext(input) {
         eventId: input.eventId,
         source: input.source
     };
+}
+function normalizePullRequestReviewThreadEvent(payload, deliveryId) {
+    if (!SUPPORTED_REVIEW_THREAD_ACTIONS.has(payload.action)) {
+        return [];
+    }
+    return [
+        toReviewContext({
+            owner: payload.repository.owner.login,
+            name: payload.repository.name,
+            fullName: payload.repository.full_name,
+            pullRequestNumber: payload.pull_request.number,
+            baseSha: payload.pull_request.base.sha,
+            headSha: payload.pull_request.head.sha,
+            eventId: deliveryId,
+            source: "pull_request_review_thread"
+        })
+    ];
 }
 function normalizePullRequestEvent(payload, deliveryId) {
     if (!SUPPORTED_PULL_REQUEST_ACTIONS.has(payload.action)) {
@@ -68070,12 +68244,15 @@ async function normalizePushEvent(payload, deliveryId, gateway, branchPatterns) 
  * `ReviewContext`s. A push event resolves to the open PRs on its branch
  * (one context per PR) and produces none when no open PR matches, so the
  * caller never runs a review for a push with no PR (design doc section 4).
- * Any event that isn't a supported pull_request action or a push produces
- * no work.
+ * Review-thread resolution changes produce a summary-only context; any other
+ * event produces no work.
  */
 async function normalizeWebhookEvent(input) {
     if (input.eventName === "pull_request") {
         return normalizePullRequestEvent(input.payload, input.deliveryId);
+    }
+    if (input.eventName === "pull_request_review_thread") {
+        return normalizePullRequestReviewThreadEvent(input.payload, input.deliveryId);
     }
     if (input.eventName === "push") {
         return normalizePushEvent(input.payload, input.deliveryId, input.gateway, input.branchPatterns);
@@ -68115,7 +68292,7 @@ async function normalizeActionEvent(input) {
 
 const BOT_LOGIN = "github-actions[bot]";
 function resolveConfigRef(eventName, payload, sha) {
-    if (eventName === "pull_request") {
+    if (eventName === "pull_request" || eventName === "pull_request_review_thread") {
         const pullRequest = payload.pull_request;
         return pullRequest?.head?.sha ?? sha;
     }
@@ -68134,7 +68311,13 @@ async function run() {
     const octokit = getOctokit(token);
     const gateway = createOctokitGateway(octokit);
     const { eventName, payload, repo, sha } = github_context;
-    const configRef = resolveConfigRef(eventName, payload, sha);
+    const payloadRecord = payload;
+    const sender = payloadRecord.sender;
+    if (eventName === "pull_request_review_thread" && sender?.login === BOT_LOGIN) {
+        info("ignoring bot-authored review thread event");
+        return;
+    }
+    const configRef = resolveConfigRef(eventName, payloadRecord, sha);
     const repositoryYaml = await gateway.getFileContent({
         owner: repo.owner,
         repo: repo.repo,

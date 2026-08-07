@@ -15,6 +15,8 @@ name: Vetter review
 on:
   pull_request:
     types: [opened, reopened, synchronize]
+  pull_request_review_thread:
+    types: [resolved, unresolved]
   push:
 
 permissions:

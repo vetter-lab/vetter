@@ -11,7 +11,7 @@ import { createInstallationClient } from "../../integrations/github/auth.js";
 import type { GitHubGateway } from "../../integrations/github/gateway.js";
 import { createOctokitGateway } from "../../integrations/github/octokit-gateway.js";
 import { createOpenAiCompatibleModelProvider } from "../../integrations/models/openai-compatible.js";
-import { runReview } from "../../review/application/run-review.js";
+import { runReview, syncReviewSummary } from "../../review/application/run-review.js";
 import type { ReviewContext } from "../../review/domain/types.js";
 import { checkoutPullRequest } from "./checkout.js";
 import { normalizeWebhookEvent } from "./events.js";
@@ -56,7 +56,7 @@ async function resolveBotLogin(octokit: Octokit): Promise<string> {
 }
 
 function resolveConfigRef(eventName: string, payload: Record<string, unknown>): string | null {
-  if (eventName === "pull_request") {
+  if (eventName === "pull_request" || eventName === "pull_request_review_thread") {
     const pullRequest = payload.pull_request as { head?: { sha?: string } } | undefined;
     return pullRequest?.head?.sha ?? null;
   }
@@ -76,6 +76,11 @@ async function runContextReview(input: {
   signal: AbortSignal;
 }): Promise<void> {
   const { context, config, gateway, octokit, botLogin, signal } = input;
+
+  if (context.source === "pull_request_review_thread") {
+    await syncReviewSummary({ gateway, context, config, botLogins: new Set([botLogin]), signal });
+    return;
+  }
 
   const installationAuth = (await octokit.auth({ type: "installation" })) as { token: string };
   const checkout = await checkoutPullRequest({
@@ -168,6 +173,11 @@ async function main(): Promise<void> {
       });
       const botLogin = await resolveBotLogin(octokit);
       const gateway = createOctokitGateway(octokit);
+
+      const sender = payload.sender as { login?: unknown } | undefined;
+      if (eventName === "pull_request_review_thread" && sender?.login === botLogin) {
+        return reply.code(202).send({ accepted: false, reason: "bot-authored review thread event" });
+      }
 
       const configRef = resolveConfigRef(eventName, payload);
       const repositoryYaml = configRef
