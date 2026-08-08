@@ -53965,7 +53965,274 @@ function isSummaryComment(body) {
     return SUMMARY_MARKER_PATTERN.test(body);
 }
 
+// EXTERNAL MODULE: external "node:crypto"
+var external_node_crypto_ = __nccwpck_require__(7598);
+;// CONCATENATED MODULE: ./src/review/domain/findings/text.ts
+/**
+ * Normalizes text for identity comparisons: collapses CRLF/CR to LF,
+ * trims each line and collapses repeated horizontal whitespace within it,
+ * then trims the overall result. This keeps fingerprints stable across
+ * incidental formatting differences (line-ending changes, re-indentation,
+ * trailing whitespace) without masking substantive content changes.
+ */
+function normalize(input) {
+    return input
+        .replace(/\r\n/g, "\n")
+        .replace(/\r/g, "\n")
+        .split("\n")
+        .map((line) => line.trim().replace(/[ \t]+/g, " "))
+        .join("\n")
+        .trim();
+}
+
+;// CONCATENATED MODULE: ./src/review/domain/findings/fingerprint.ts
+
+
+/**
+ * Versioned identity fingerprint for a finding. Deliberately excludes the
+ * line number so that unrelated line shifts elsewhere in the file don't
+ * change a finding's identity, while a change to the rule, file, normalized
+ * code anchor, or normalized title is treated as a new finding.
+ */
+function computeFingerprint(draft) {
+    return (0,external_node_crypto_.createHash)("sha256")
+        .update([draft.ruleId, draft.path, normalize(draft.codeAnchor), normalize(draft.title)].join("\n"))
+        .digest("hex");
+}
+/**
+ * Providers can report the same logical finding more than once. Keep the
+ * first normalized finding for a fingerprint so one review run cannot create
+ * duplicate inline comments or summary rows.
+ */
+function deduplicateFindings(findings) {
+    const seen = new Set();
+    return findings.filter((finding) => {
+        if (seen.has(finding.fingerprint)) {
+            return false;
+        }
+        seen.add(finding.fingerprint);
+        return true;
+    });
+}
+/**
+ * Matches a normalized finding against existing findings for the same PR.
+ * Prefers the first exact fingerprint match. If none exists, falls back to
+ * matching by rule + path, but only when that fallback is unambiguous:
+ * if more than one existing finding shares the same rule and path, there is
+ * no reliable way to tell which one the new finding corresponds to, so the
+ * match is rejected. Exact duplicate persisted comments are the same logical
+ * finding, so the first one is used as the canonical comment.
+ */
+function matchExistingFinding(finding, existing, fallbackFingerprints) {
+    const exactMatch = existing.find((candidate) => candidate.fingerprint === finding.fingerprint);
+    if (exactMatch) {
+        return exactMatch;
+    }
+    const fallbackMatches = existing.filter((candidate) => candidate.ruleId === finding.ruleId &&
+        candidate.path === finding.path &&
+        (fallbackFingerprints === undefined || fallbackFingerprints.has(candidate.fingerprint)));
+    if (fallbackMatches.length === 1) {
+        return fallbackMatches[0] ?? null;
+    }
+    return null;
+}
+
+;// CONCATENATED MODULE: ./src/review/domain/reconciliation/reconcile.ts
+
+/**
+ * Formats the provider-completeness scope key for a finding's source/path
+ * pair. Deliberately distinct from `Finding.scopeKey` (which also carries
+ * `ruleId`, for fingerprinting): completeness is tracked per file per
+ * provider, not per rule, since a provider either finished reviewing a file
+ * or it didn't.
+ */
+function providerScope(source, path) {
+    return `${source}:${path}`;
+}
+/** GitHub GraphQL omits the `[bot]` suffix that REST logins may include. */
+function isConfiguredBotLogin(login, botLogins) {
+    if (!login) {
+        return false;
+    }
+    const normalize = (value) => value.toLowerCase().replace(/\[bot\]$/, "");
+    const normalizedLogin = normalize(login);
+    return [...botLogins].some((botLogin) => normalize(botLogin) === normalizedLogin);
+}
+/**
+ * Determines whether a resolved thread was resolved by Vetter itself (a
+ * "fixed" finding) rather than a developer (a "suppressed" finding).
+ * `resolvedByLogin` from GitHub's GraphQL API is authoritative when known;
+ * the marker's `bot-resolved` field is the fallback. See design doc section 5.
+ */
+function wasResolvedByBot(existing, botLogins) {
+    if (existing.resolvedByLogin !== null) {
+        return isConfiguredBotLogin(existing.resolvedByLogin, botLogins);
+    }
+    return existing.lastAction === "bot-resolved";
+}
+function toRenderable(finding) {
+    return {
+        fingerprint: finding.fingerprint,
+        ruleId: finding.ruleId,
+        severity: finding.severity,
+        source: finding.source,
+        scopeKey: finding.scopeKey,
+        title: finding.title,
+        body: finding.body,
+        path: finding.path,
+        line: finding.line
+    };
+}
+function existingToRenderable(existing) {
+    return {
+        fingerprint: existing.fingerprint,
+        ruleId: existing.ruleId,
+        severity: existing.severity,
+        source: existing.source,
+        scopeKey: existing.scopeKey,
+        title: existing.title,
+        body: existing.body,
+        path: existing.path,
+        line: existing.line
+    };
+}
+function rowFromFinding(finding, state, commentId, commentUrl) {
+    return {
+        fingerprint: finding.fingerprint,
+        severity: finding.severity,
+        title: finding.title,
+        path: finding.path,
+        line: finding.line,
+        state,
+        commentId,
+        ...(commentUrl !== undefined ? { commentUrl } : {})
+    };
+}
+function rowFromExisting(existing, state) {
+    return {
+        fingerprint: existing.fingerprint,
+        severity: existing.severity,
+        title: existing.title,
+        path: existing.path,
+        line: existing.line,
+        state,
+        commentId: existing.commentId,
+        ...(existing.commentUrl !== undefined ? { commentUrl: existing.commentUrl } : {})
+    };
+}
+/**
+ * Pure reconciliation of this run's findings against previously persisted
+ * GitHub comment/thread state (there is no SQL store; GitHub comments and
+ * threads are the state). Implements the state table in design doc section 5:
+ *
+ * - A current finding matching an unresolved or bot-resolved-then-regressed
+ *   thread is created/updated/reopened.
+ * - A current finding matching a developer-resolved thread stays suppressed
+ *   and is never reopened.
+ * - An existing finding missing from the current run is marked `fixed` only
+ *   when its provider/path scope fully completed this run and its location was
+ *   included in the incremental diff; otherwise it is left untouched so a
+ *   commit-level review cannot close an unreviewed finding.
+ *
+ * Performs no I/O; the caller applies the returned plan through a
+ * `GitHubGateway`.
+ */
+function reconcileFindings(input) {
+    const { current, existing, persistedSummaryRows = [], completeScopes, reviewedExistingFingerprints, botLogins } = input;
+    const createInline = [];
+    const updateInline = [];
+    const resolveThreads = [];
+    const reopenThreads = [];
+    const summaryOnly = [];
+    const rowsByFingerprint = new Map(persistedSummaryRows.map((row) => [row.fingerprint, row]));
+    const matchedFingerprints = new Set();
+    const setRow = (row) => {
+        rowsByFingerprint.set(row.fingerprint, row);
+    };
+    for (const { finding, anchor } of current) {
+        const match = matchExistingFinding(finding, existing, reviewedExistingFingerprints);
+        if (match) {
+            matchedFingerprints.add(match.fingerprint);
+            if (match.isResolved) {
+                if (wasResolvedByBot(match, botLogins)) {
+                    if (match.threadId) {
+                        reopenThreads.push(match.threadId);
+                    }
+                    updateInline.push({ commentId: match.commentId, finding: toRenderable(finding), botResolved: false });
+                    setRow(rowFromFinding(finding, "open", match.commentId, match.commentUrl));
+                }
+                else {
+                    setRow(rowFromFinding(finding, "suppressed", match.commentId, match.commentUrl));
+                }
+                continue;
+            }
+            updateInline.push({ commentId: match.commentId, finding: toRenderable(finding), botResolved: false });
+            setRow(rowFromFinding(finding, "open", match.commentId, match.commentUrl));
+            continue;
+        }
+        const persisted = rowsByFingerprint.get(finding.fingerprint);
+        if (persisted) {
+            if (persisted.state === "fixed") {
+                if (anchor) {
+                    createInline.push({ finding, anchor });
+                    setRow(rowFromFinding(finding, "open", null));
+                }
+                else {
+                    summaryOnly.push(finding);
+                    setRow(rowFromFinding(finding, "open", null));
+                }
+            }
+            else {
+                setRow(rowFromFinding(finding, persisted.state, persisted.commentId, persisted.commentUrl));
+            }
+            continue;
+        }
+        if (anchor) {
+            createInline.push({ finding, anchor });
+            setRow(rowFromFinding(finding, "open", null));
+        }
+        else {
+            summaryOnly.push(finding);
+            setRow(rowFromFinding(finding, "open", null));
+        }
+    }
+    for (const existingFinding of existing) {
+        if (matchedFingerprints.has(existingFinding.fingerprint)) {
+            continue;
+        }
+        if (!existingFinding.isResolved) {
+            const scope = providerScope(existingFinding.source, existingFinding.path);
+            const wasReviewed = reviewedExistingFingerprints === undefined || reviewedExistingFingerprints.has(existingFinding.fingerprint);
+            if (completeScopes.has(scope) && wasReviewed) {
+                if (existingFinding.threadId) {
+                    resolveThreads.push(existingFinding.threadId);
+                }
+                updateInline.push({
+                    commentId: existingFinding.commentId,
+                    finding: existingToRenderable(existingFinding),
+                    botResolved: true
+                });
+                setRow(rowFromExisting(existingFinding, "fixed"));
+            }
+            else {
+                setRow(rowFromExisting(existingFinding, existingFinding.state));
+            }
+            continue;
+        }
+        setRow(rowFromExisting(existingFinding, existingFinding.state));
+    }
+    return {
+        createInline,
+        updateInline,
+        resolveThreads,
+        reopenThreads,
+        summaryOnly,
+        rows: [...rowsByFingerprint.values()]
+    };
+}
+
 ;// CONCATENATED MODULE: ./src/integrations/github/octokit-gateway.ts
+
 
 const CHECK_RUN_NAME = "vetter / code-review";
 const REVIEW_THREADS_QUERY = `
@@ -53986,6 +54253,7 @@ const REVIEW_THREADS_QUERY = `
                 body
                 path
                 line
+                originalLine
                 author {
                   login
                 }
@@ -54102,6 +54370,7 @@ function createOctokitGateway(octokit) {
                     body: comment.body,
                     path: comment.path,
                     line: comment.line,
+                    originalLine: comment.originalLine,
                     authorLogin: comment.author?.login ?? null
                 }))
             }));
@@ -54216,7 +54485,7 @@ function mapFileStatus(status) {
 }
 function isBotOwnedFindingComment(comment, botLogins) {
     const login = comment.author?.login ?? "";
-    return botLogins.has(login) && isFindingComment(comment.body);
+    return isConfiguredBotLogin(login, botLogins) && isFindingComment(comment.body);
 }
 async function collectReviewThreadNodes(octokit, input) {
     const nodes = [];
@@ -54245,7 +54514,7 @@ async function listBotIssueComments(octokit, input) {
         per_page: 100
     });
     return comments
-        .filter((comment) => input.botLogins.has(comment.user?.login ?? ""))
+        .filter((comment) => isConfiguredBotLogin(comment.user?.login, input.botLogins))
         .map((comment) => ({
         commentId: comment.id,
         body: comment.body ?? "",
@@ -67595,78 +67864,6 @@ function createOpenAiCompatibleModelProvider(config, createChatCompletion) {
     };
 }
 
-// EXTERNAL MODULE: external "node:crypto"
-var external_node_crypto_ = __nccwpck_require__(7598);
-;// CONCATENATED MODULE: ./src/review/domain/findings/text.ts
-/**
- * Normalizes text for identity comparisons: collapses CRLF/CR to LF,
- * trims each line and collapses repeated horizontal whitespace within it,
- * then trims the overall result. This keeps fingerprints stable across
- * incidental formatting differences (line-ending changes, re-indentation,
- * trailing whitespace) without masking substantive content changes.
- */
-function normalize(input) {
-    return input
-        .replace(/\r\n/g, "\n")
-        .replace(/\r/g, "\n")
-        .split("\n")
-        .map((line) => line.trim().replace(/[ \t]+/g, " "))
-        .join("\n")
-        .trim();
-}
-
-;// CONCATENATED MODULE: ./src/review/domain/findings/fingerprint.ts
-
-
-/**
- * Versioned identity fingerprint for a finding. Deliberately excludes the
- * line number so that unrelated line shifts elsewhere in the file don't
- * change a finding's identity, while a change to the rule, file, normalized
- * code anchor, or normalized title is treated as a new finding.
- */
-function computeFingerprint(draft) {
-    return (0,external_node_crypto_.createHash)("sha256")
-        .update([draft.ruleId, draft.path, normalize(draft.codeAnchor), normalize(draft.title)].join("\n"))
-        .digest("hex");
-}
-/**
- * Providers can report the same logical finding more than once. Keep the
- * first normalized finding for a fingerprint so one review run cannot create
- * duplicate inline comments or summary rows.
- */
-function deduplicateFindings(findings) {
-    const seen = new Set();
-    return findings.filter((finding) => {
-        if (seen.has(finding.fingerprint)) {
-            return false;
-        }
-        seen.add(finding.fingerprint);
-        return true;
-    });
-}
-/**
- * Matches a normalized finding against existing findings for the same PR.
- * Prefers the first exact fingerprint match. If none exists, falls back to
- * matching by rule + path, but only when that fallback is unambiguous:
- * if more than one existing finding shares the same rule and path, there is
- * no reliable way to tell which one the new finding corresponds to, so the
- * match is rejected. Exact duplicate persisted comments are the same logical
- * finding, so the first one is used as the canonical comment.
- */
-function matchExistingFinding(finding, existing, fallbackFingerprints) {
-    const exactMatch = existing.find((candidate) => candidate.fingerprint === finding.fingerprint);
-    if (exactMatch) {
-        return exactMatch;
-    }
-    const fallbackMatches = existing.filter((candidate) => candidate.ruleId === finding.ruleId &&
-        candidate.path === finding.path &&
-        (fallbackFingerprints === undefined || fallbackFingerprints.has(candidate.fingerprint)));
-    if (fallbackMatches.length === 1) {
-        return fallbackMatches[0] ?? null;
-    }
-    return null;
-}
-
 ;// CONCATENATED MODULE: ./src/review/domain/findings/normalize.ts
 
 
@@ -67730,191 +67927,6 @@ function evaluateCheckRun(input) {
         })
     ].join("\n");
     return { conclusion: blocking ? "failure" : "success", title, summary };
-}
-
-;// CONCATENATED MODULE: ./src/review/domain/reconciliation/reconcile.ts
-
-/**
- * Formats the provider-completeness scope key for a finding's source/path
- * pair. Deliberately distinct from `Finding.scopeKey` (which also carries
- * `ruleId`, for fingerprinting): completeness is tracked per file per
- * provider, not per rule, since a provider either finished reviewing a file
- * or it didn't.
- */
-function providerScope(source, path) {
-    return `${source}:${path}`;
-}
-/**
- * Determines whether a resolved thread was resolved by Vetter itself (a
- * "fixed" finding) rather than a developer (a "suppressed" finding).
- * `resolvedByLogin` from GitHub's GraphQL API is authoritative when known;
- * the marker's `bot-resolved` field is the fallback. See design doc section 5.
- */
-function wasResolvedByBot(existing, botLogins) {
-    if (existing.resolvedByLogin !== null) {
-        return botLogins.has(existing.resolvedByLogin);
-    }
-    return existing.lastAction === "bot-resolved";
-}
-function toRenderable(finding) {
-    return {
-        fingerprint: finding.fingerprint,
-        ruleId: finding.ruleId,
-        severity: finding.severity,
-        source: finding.source,
-        scopeKey: finding.scopeKey,
-        title: finding.title,
-        body: finding.body,
-        path: finding.path,
-        line: finding.line
-    };
-}
-function existingToRenderable(existing) {
-    return {
-        fingerprint: existing.fingerprint,
-        ruleId: existing.ruleId,
-        severity: existing.severity,
-        source: existing.source,
-        scopeKey: existing.scopeKey,
-        title: existing.title,
-        body: existing.body,
-        path: existing.path,
-        line: existing.line
-    };
-}
-function rowFromFinding(finding, state, commentId, commentUrl) {
-    return {
-        fingerprint: finding.fingerprint,
-        severity: finding.severity,
-        title: finding.title,
-        path: finding.path,
-        line: finding.line,
-        state,
-        commentId,
-        ...(commentUrl !== undefined ? { commentUrl } : {})
-    };
-}
-function rowFromExisting(existing, state) {
-    return {
-        fingerprint: existing.fingerprint,
-        severity: existing.severity,
-        title: existing.title,
-        path: existing.path,
-        line: existing.line,
-        state,
-        commentId: existing.commentId,
-        ...(existing.commentUrl !== undefined ? { commentUrl: existing.commentUrl } : {})
-    };
-}
-/**
- * Pure reconciliation of this run's findings against previously persisted
- * GitHub comment/thread state (there is no SQL store; GitHub comments and
- * threads are the state). Implements the state table in design doc section 5:
- *
- * - A current finding matching an unresolved or bot-resolved-then-regressed
- *   thread is created/updated/reopened.
- * - A current finding matching a developer-resolved thread stays suppressed
- *   and is never reopened.
- * - An existing finding missing from the current run is marked `fixed` only
- *   when its provider/path scope fully completed this run and its location was
- *   included in the incremental diff; otherwise it is left untouched so a
- *   commit-level review cannot close an unreviewed finding.
- *
- * Performs no I/O; the caller applies the returned plan through a
- * `GitHubGateway`.
- */
-function reconcileFindings(input) {
-    const { current, existing, persistedSummaryRows = [], completeScopes, reviewedExistingFingerprints, botLogins } = input;
-    const createInline = [];
-    const updateInline = [];
-    const resolveThreads = [];
-    const reopenThreads = [];
-    const summaryOnly = [];
-    const rowsByFingerprint = new Map(persistedSummaryRows.map((row) => [row.fingerprint, row]));
-    const matchedFingerprints = new Set();
-    const setRow = (row) => {
-        rowsByFingerprint.set(row.fingerprint, row);
-    };
-    for (const { finding, anchor } of current) {
-        const match = matchExistingFinding(finding, existing, reviewedExistingFingerprints);
-        if (match) {
-            matchedFingerprints.add(match.fingerprint);
-            if (match.isResolved) {
-                if (wasResolvedByBot(match, botLogins)) {
-                    if (match.threadId) {
-                        reopenThreads.push(match.threadId);
-                    }
-                    updateInline.push({ commentId: match.commentId, finding: toRenderable(finding), botResolved: false });
-                    setRow(rowFromFinding(finding, "open", match.commentId, match.commentUrl));
-                }
-                else {
-                    setRow(rowFromFinding(finding, "suppressed", match.commentId, match.commentUrl));
-                }
-                continue;
-            }
-            updateInline.push({ commentId: match.commentId, finding: toRenderable(finding), botResolved: false });
-            setRow(rowFromFinding(finding, "open", match.commentId, match.commentUrl));
-            continue;
-        }
-        const persisted = rowsByFingerprint.get(finding.fingerprint);
-        if (persisted) {
-            if (persisted.state === "fixed") {
-                if (anchor) {
-                    createInline.push({ finding, anchor });
-                    setRow(rowFromFinding(finding, "open", null));
-                }
-                else {
-                    summaryOnly.push(finding);
-                    setRow(rowFromFinding(finding, "open", null));
-                }
-            }
-            else {
-                setRow(rowFromFinding(finding, persisted.state, persisted.commentId, persisted.commentUrl));
-            }
-            continue;
-        }
-        if (anchor) {
-            createInline.push({ finding, anchor });
-            setRow(rowFromFinding(finding, "open", null));
-        }
-        else {
-            summaryOnly.push(finding);
-            setRow(rowFromFinding(finding, "open", null));
-        }
-    }
-    for (const existingFinding of existing) {
-        if (matchedFingerprints.has(existingFinding.fingerprint)) {
-            continue;
-        }
-        if (!existingFinding.isResolved) {
-            const scope = providerScope(existingFinding.source, existingFinding.path);
-            const wasReviewed = reviewedExistingFingerprints === undefined || reviewedExistingFingerprints.has(existingFinding.fingerprint);
-            if (completeScopes.has(scope) && wasReviewed) {
-                if (existingFinding.threadId) {
-                    resolveThreads.push(existingFinding.threadId);
-                }
-                updateInline.push({
-                    commentId: existingFinding.commentId,
-                    finding: existingToRenderable(existingFinding),
-                    botResolved: true
-                });
-                setRow(rowFromExisting(existingFinding, "fixed"));
-            }
-            else {
-                setRow(rowFromExisting(existingFinding, existingFinding.state));
-            }
-            continue;
-        }
-        setRow(rowFromExisting(existingFinding, existingFinding.state));
-    }
-    return {
-        createInline,
-        updateInline,
-        resolveThreads,
-        reopenThreads,
-        summaryOnly,
-        rows: [...rowsByFingerprint.values()]
-    };
 }
 
 ;// CONCATENATED MODULE: ./src/review/domain/findings/title.ts
@@ -68144,7 +68156,7 @@ function toExistingFindings(snapshot, botLogins) {
                 title: marker.title,
                 body: comment.body,
                 path: comment.path,
-                line: comment.line,
+                line: comment.line ?? comment.originalLine,
                 commentId: comment.commentId,
                 ...(comment.htmlUrl !== undefined ? { commentUrl: comment.htmlUrl } : {}),
                 threadId: thread.threadId,

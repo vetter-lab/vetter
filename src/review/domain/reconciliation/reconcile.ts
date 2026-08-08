@@ -82,6 +82,17 @@ export function providerScope(source: ReviewSource, path: string): string {
   return `${source}:${path}`;
 }
 
+/** GitHub GraphQL omits the `[bot]` suffix that REST logins may include. */
+export function isConfiguredBotLogin(login: string | null | undefined, botLogins: Set<string>): boolean {
+  if (!login) {
+    return false;
+  }
+
+  const normalize = (value: string): string => value.toLowerCase().replace(/\[bot\]$/, "");
+  const normalizedLogin = normalize(login);
+  return [...botLogins].some((botLogin) => normalize(botLogin) === normalizedLogin);
+}
+
 /**
  * Determines whether a resolved thread was resolved by Vetter itself (a
  * "fixed" finding) rather than a developer (a "suppressed" finding).
@@ -90,7 +101,7 @@ export function providerScope(source: ReviewSource, path: string): string {
  */
 export function wasResolvedByBot(existing: Pick<ExistingFinding, "resolvedByLogin" | "lastAction">, botLogins: Set<string>): boolean {
   if (existing.resolvedByLogin !== null) {
-    return botLogins.has(existing.resolvedByLogin);
+    return isConfiguredBotLogin(existing.resolvedByLogin, botLogins);
   }
   return existing.lastAction === "bot-resolved";
 }

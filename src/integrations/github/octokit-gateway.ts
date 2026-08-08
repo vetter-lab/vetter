@@ -1,5 +1,6 @@
 import type { Octokit } from "octokit";
 import { isFindingComment, isSummaryComment } from "../../review/domain/reconciliation/markers.js";
+import { isConfiguredBotLogin } from "../../review/domain/reconciliation/reconcile.js";
 import type { ChangedFileEntry, GitHubGateway } from "./gateway.js";
 import type {
   CheckRunInput,
@@ -21,6 +22,7 @@ interface GraphQlThreadComment {
   body: string;
   path: string;
   line: number | null;
+  originalLine: number | null;
   author: { login: string } | null;
 }
 
@@ -66,6 +68,7 @@ const REVIEW_THREADS_QUERY = `
                 body
                 path
                 line
+                originalLine
                 author {
                   login
                 }
@@ -208,6 +211,7 @@ export function createOctokitGateway(octokit: Octokit): GitHubGateway {
             body: comment.body,
             path: comment.path,
             line: comment.line,
+            originalLine: comment.originalLine,
             authorLogin: comment.author?.login ?? null
           }))
       }));
@@ -349,7 +353,7 @@ function mapFileStatus(status: string): ChangedFileEntry["status"] {
 
 function isBotOwnedFindingComment(comment: GraphQlThreadComment, botLogins: Set<string>): boolean {
   const login = comment.author?.login ?? "";
-  return botLogins.has(login) && isFindingComment(comment.body);
+  return isConfiguredBotLogin(login, botLogins) && isFindingComment(comment.body);
 }
 
 async function collectReviewThreadNodes(
@@ -391,7 +395,7 @@ async function listBotIssueComments(
   });
 
   return comments
-    .filter((comment) => input.botLogins.has(comment.user?.login ?? ""))
+    .filter((comment) => isConfiguredBotLogin(comment.user?.login, input.botLogins))
     .map((comment) => ({
       commentId: comment.id,
       body: comment.body ?? "",

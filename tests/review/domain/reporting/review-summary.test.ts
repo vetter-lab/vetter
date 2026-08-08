@@ -29,6 +29,7 @@ describe("syncReviewSummary", () => {
               body: marker,
               path: "src/example.ts",
               line: 12,
+              originalLine: 12,
               authorLogin: "vetter[bot]"
             }
           ]

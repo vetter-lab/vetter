@@ -21,6 +21,8 @@ export interface ReviewThreadComment {
   body: string;
   path: string;
   line: number | null;
+  /** Original line on the commit where the comment was created. */
+  originalLine: number | null;
   authorLogin: string | null;
 }
 
