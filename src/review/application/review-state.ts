@@ -31,7 +31,7 @@ export function toExistingFindings(snapshot: ReviewStateSnapshot, botLogins: Set
         title: marker.title,
         body: comment.body,
         path: comment.path,
-        line: comment.line,
+        line: comment.line ?? comment.originalLine,
         commentId: comment.commentId,
         ...(comment.htmlUrl !== undefined ? { commentUrl: comment.htmlUrl } : {}),
         threadId: thread.threadId,
