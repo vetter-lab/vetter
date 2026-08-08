@@ -42,6 +42,12 @@ interface ReviewThreadsQueryResult {
   };
 }
 
+interface CompareFile {
+  filename: string;
+  status: string;
+  patch?: string | null;
+}
+
 const REVIEW_THREADS_QUERY = `
   query ReviewThreads($owner: String!, $repo: String!, $number: Int!, $after: String) {
     repository(owner: $owner, name: $repo) {
@@ -143,13 +149,14 @@ export function createOctokitGateway(octokit: Octokit): GitHubGateway {
       return data.map((pr) => toPullRequestSnapshot(pr));
     },
 
-    async listChangedFiles(input: PullRequestRef): Promise<ChangedFileEntry[]> {
-      const files = await octokit.paginate(octokit.rest.pulls.listFiles, {
+    async listChangedFiles(input: PullRequestRef & { baseSha: string; headSha: string }): Promise<ChangedFileEntry[]> {
+      const files = await octokit.paginate(octokit.rest.repos.compareCommits, {
         owner: input.owner,
         repo: input.repo,
-        pull_number: input.number,
+        base: input.baseSha,
+        head: input.headSha,
         per_page: 100
-      });
+      }, (response) => (response.data as { files?: CompareFile[] }).files ?? []);
 
       return files.map((file) => ({
         path: file.filename,

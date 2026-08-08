@@ -12,7 +12,7 @@ scenarios.
 | State | Meaning | How it's produced |
 | --- | --- | --- |
 | `open` | The finding is currently reported and its thread is unresolved. | A current review run reproduces the finding, and no human has resolved its thread. |
-| `fixed` | The finding disappeared from a **complete** review pass. | An existing bot thread is unresolved, but the finding no longer appears, and the provider/path scope that would have reported it finished successfully this run. Vetter resolves the thread. |
+| `fixed` | The finding disappeared from a **complete incremental** review pass. | An existing bot thread is unresolved, its location is included in the commit diff, and the provider/path scope that would have reported it finished successfully this run. Vetter resolves the thread. |
 | `suppressed` | A human resolved the thread themselves. | The thread is resolved and `resolvedBy` (or the fallback marker field) identifies a non-bot login. Vetter never reopens this automatically. |
 
 State transitions are computed by the pure function `reconcileFindings` in
@@ -58,6 +58,12 @@ touched. This is what makes GitHub comments a safe append/rebuild target
 without a separate state store.
 
 ## Fingerprinting and matching
+
+Each review run sends only the event's changed range to the providers. For an
+initial pull request review, that range is `base...head`. For a
+`pull_request.synchronize` or push event, it is `before...after`, so findings
+from earlier commits are recovered from GitHub state but are not reviewed as
+new input again.
 
 A finding's identity (`src/review/domain/findings/fingerprint.ts`) is a SHA-256 digest of its
 rule ID, normalized path, normalized code anchor, and normalized title —
@@ -105,10 +111,11 @@ source of truth either way.
   comments. Every current finding either fingerprint-matches an existing
   comment (updated in place) or is genuinely new.
 - **A finding that gets fixed**: on the next run, the finding is absent
-  from the provider's output, and if that provider's scope for the
-  affected file completed successfully, Vetter resolves the corresponding
-  thread and marks it `fixed` in the summary — the inline comment is kept,
-  not deleted.
+  from the provider's output, its location is part of the commit diff, and if
+  that provider's scope for the affected file completed successfully, Vetter
+  resolves the corresponding thread and marks it `fixed` in the summary — the
+  inline comment is kept, not deleted. Findings outside the commit diff stay
+  open for a later review that includes their location.
 - **A finding a developer manually resolves** (clicks "Resolve
   conversation" without Vetter reopening it): stays `suppressed`
   permanently. Vetter never reopens a thread it didn't resolve itself,

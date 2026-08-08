@@ -66,6 +66,8 @@ export interface ReconcileInput {
   persistedSummaryRows?: SummaryRow[];
   /** Provider scope keys (`${source}:${path}`) that completed a full, successful pass this run. */
   completeScopes: Set<string>;
+  /** Existing findings whose location was included in this incremental diff. */
+  reviewedExistingFingerprints?: Set<string>;
   botLogins: Set<string>;
 }
 
@@ -162,15 +164,22 @@ function rowFromExisting(existing: ExistingFinding, state: FindingState): Summar
  * - A current finding matching a developer-resolved thread stays suppressed
  *   and is never reopened.
  * - An existing finding missing from the current run is marked `fixed` only
- *   when its provider/path scope fully completed this run; otherwise it is
- *   left untouched so a partial analysis can never close an unverified
- *   finding.
+ *   when its provider/path scope fully completed this run and its location was
+ *   included in the incremental diff; otherwise it is left untouched so a
+ *   commit-level review cannot close an unreviewed finding.
  *
  * Performs no I/O; the caller applies the returned plan through a
  * `GitHubGateway`.
  */
 export function reconcileFindings(input: ReconcileInput): ReconciliationPlan {
-  const { current, existing, persistedSummaryRows = [], completeScopes, botLogins } = input;
+  const {
+    current,
+    existing,
+    persistedSummaryRows = [],
+    completeScopes,
+    reviewedExistingFingerprints,
+    botLogins
+  } = input;
 
   const createInline: CreateInlinePlan[] = [];
   const updateInline: UpdateInlinePlan[] = [];
@@ -185,7 +194,7 @@ export function reconcileFindings(input: ReconcileInput): ReconciliationPlan {
   };
 
   for (const { finding, anchor } of current) {
-    const match = matchExistingFinding(finding, existing);
+    const match = matchExistingFinding(finding, existing, reviewedExistingFingerprints);
 
     if (match) {
       matchedFingerprints.add(match.fingerprint);
@@ -240,7 +249,9 @@ export function reconcileFindings(input: ReconcileInput): ReconciliationPlan {
 
     if (!existingFinding.isResolved) {
       const scope = providerScope(existingFinding.source, existingFinding.path);
-      if (completeScopes.has(scope)) {
+      const wasReviewed =
+        reviewedExistingFingerprints === undefined || reviewedExistingFingerprints.has(existingFinding.fingerprint);
+      if (completeScopes.has(scope) && wasReviewed) {
         if (existingFinding.threadId) {
           resolveThreads.push(existingFinding.threadId);
         }

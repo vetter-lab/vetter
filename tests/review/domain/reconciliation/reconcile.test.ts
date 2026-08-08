@@ -135,4 +135,27 @@ describe("reconcileFindings", () => {
     expect(plan.rows.find((row) => row.fingerprint === "suppressed")?.state).toBe("suppressed");
     expect(plan.rows.find((row) => row.fingerprint === "fixed")?.state).toBe("fixed");
   });
+
+  it("does not close an existing finding outside the incremental diff", () => {
+    const untouched = existing({
+      fingerprint: "untouched",
+      state: "open",
+      isResolved: false,
+      threadId: "thread-untouched",
+      commentId: 3
+    });
+
+    const plan = reconcileFindings({
+      current: [],
+      existing: [untouched],
+      completeScopes: new Set(["llm:src/example.ts"]),
+      reviewedExistingFingerprints: new Set(),
+      botLogins: new Set(["github-actions[bot]"])
+    });
+
+    expect(plan.resolveThreads).toEqual([]);
+    expect(plan.rows).toEqual([
+      expect.objectContaining({ fingerprint: "untouched", state: "open" })
+    ]);
+  });
 });

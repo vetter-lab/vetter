@@ -7,6 +7,8 @@ export interface ReviewContext {
   pullRequestNumber: number;
   baseSha: string;
   headSha: string;
+  /** Previous head used for commit-level review diffs; absent for initial PR reviews. */
+  reviewBaseSha?: string;
   eventId: string;
   source: "pull_request" | "pull_request_review_thread" | "push";
 }

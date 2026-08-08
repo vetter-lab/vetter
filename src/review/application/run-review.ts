@@ -224,7 +224,11 @@ export async function runReview(input: RunReviewInput): Promise<RunReviewResult>
     });
   }
 
-  const changedFileEntries = await gateway.listChangedFiles(pullRequestRef);
+  const changedFileEntries = await gateway.listChangedFiles({
+    ...pullRequestRef,
+    baseSha: context.reviewBaseSha ?? context.baseSha,
+    headSha: context.headSha
+  });
   const changedPaths = changedFileEntries.map((file) => file.path);
   const reviewPatches = changedFileEntries.map(toSyntheticPatch).filter((patch) => patch.length > 0);
   const parsedDiff = parseChangedFiles(reviewPatches);
@@ -300,6 +304,21 @@ export async function runReview(input: RunReviewInput): Promise<RunReviewResult>
 
   const reviewState = await gateway.listReviewState({ ...pullRequestRef, botLogins });
   const existingFindings = toExistingFindings(reviewState, botLogins);
+  const reviewedExistingFingerprints = new Set(
+    existingFindings
+      .filter((existing) => {
+        const changedFile = parsedDiff.find((file) => file.path === existing.path);
+        if (!changedFile) {
+          return false;
+        }
+        if (changedFile.status === "deleted") {
+          return true;
+        }
+        return existing.line !== null &&
+          (changedFile.addedLines.includes(existing.line) || changedFile.removedLines.includes(existing.line));
+      })
+      .map((existing) => existing.fingerprint)
+  );
   const existingSummary = await gateway.findSummaryComment({ ...pullRequestRef, botLogins });
   const persistedSummaryRows = existingSummary
     ? parseSummaryRowMarkers(existingSummary.body).map(toPersistedSummaryRow)
@@ -315,6 +334,7 @@ export async function runReview(input: RunReviewInput): Promise<RunReviewResult>
     existing: existingFindings,
     persistedSummaryRows,
     completeScopes,
+    reviewedExistingFingerprints,
     botLogins
   });
 
