@@ -115,7 +115,7 @@ describe("syncReviewSummary", () => {
     expect(updatedSummary).toContain("suppressed");
     expect(updatedSummary).toContain("src/summary-only.ts");
     expect(updatedSummary).toContain(
-      "[src/example.ts:12](https://github.com/owner/repo/pull/1#discussion_r7)"
+      '<a href="https://github.com/owner/repo/pull/1/changes/BASEbase-sha" target="_blank" rel="noopener noreferrer">src/example.ts:12</a>'
     );
     expect(createdSummary).toBe(false);
     expect(capturedCheckRun.value?.conclusion).toBe("success");

@@ -163,7 +163,7 @@ test("does not create duplicate inline comments for duplicate findings", async (
   expect(createdCommentCount).toBe(1);
 });
 
-test("backfills newly created comment ids into the summary link", async () => {
+test("links summary file locations to the pull request changes page", async () => {
   const patch = ["@@ -1,2 +1,3 @@", " old", "+new", " end"].join("\n");
   const finding: FindingDraft = {
     ruleId: "link-rule",
@@ -241,5 +241,8 @@ test("backfills newly created comment ids into the summary link", async () => {
     contextFiles: []
   });
 
-  expect(summaryBody).toContain("[#42](https://github.com/vetter-lab/demo/pull/1#discussion_r42)");
+  expect(summaryBody).toContain(
+    '<a href="https://github.com/vetter-lab/demo/pull/1/changes/BASEbase-sha" target="_blank" rel="noopener noreferrer">src/example.ts:2</a>'
+  );
+  expect(summaryBody).not.toContain("| Link |");
 });

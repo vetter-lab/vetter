@@ -23,6 +23,7 @@ export interface RenderSummaryInput {
   owner: string;
   repo: string;
   pullRequestNumber: number;
+  baseSha: string;
 }
 
 function sortRows(rows: SummaryRow[]): SummaryRow[] {
@@ -41,29 +42,17 @@ function escapeCell(text: string): string {
   return text.replace(/\|/g, "\\|").replace(/\r?\n/g, " ");
 }
 
-function fallbackCommentUrl(owner: string, repo: string, pullRequestNumber: number, commentId: number): string {
-  return `https://github.com/${owner}/${repo}/pull/${String(pullRequestNumber)}#discussion_r${String(commentId)}`;
-}
-
-function commentUrl(row: SummaryRow, input: RenderSummaryInput): string | null {
-  if (row.commentId === null) {
-    return null;
-  }
-  return row.commentUrl ?? fallbackCommentUrl(input.owner, input.repo, input.pullRequestNumber, row.commentId);
-}
-
-function commentLink(row: SummaryRow, input: RenderSummaryInput): string {
-  const url = commentUrl(row, input);
-  if (url === null || row.commentId === null) {
-    return "-";
-  }
-  return `[#${String(row.commentId)}](${url})`;
+function changesUrl(input: RenderSummaryInput): string {
+  return `https://github.com/${input.owner}/${input.repo}/pull/${String(input.pullRequestNumber)}/changes/BASE${input.baseSha}`;
 }
 
 function locationCell(row: SummaryRow, input: RenderSummaryInput): string {
-  const fileCell = escapeCell(row.line !== null ? `${row.path}:${row.line}` : row.path);
-  const url = commentUrl(row, input);
-  return url === null ? fileCell : `[${fileCell}](${url})`;
+  const fileCell = escapeCell(row.line !== null ? `${row.path}:${row.line}` : row.path)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+  const url = changesUrl(input).replace(/&/g, "&amp;").replace(/"/g, "&quot;");
+  return `<a href="${url}" target="_blank" rel="noopener noreferrer">${fileCell}</a>`;
 }
 
 function renderTable(rows: SummaryRow[], input: RenderSummaryInput, compact: boolean): string {
@@ -73,7 +62,7 @@ function renderTable(rows: SummaryRow[], input: RenderSummaryInput, compact: boo
 
   const header = compact
     ? "| Severity | State | File |\n| --- | --- | --- |"
-    : "| Severity | State | File | Title | Link |\n| --- | --- | --- | --- | --- |";
+    : "| Severity | State | File | Title |\n| --- | --- | --- | --- |";
 
   const lines = rows.map((row) => {
     const fileCell = locationCell(row, input);
@@ -83,8 +72,7 @@ function renderTable(rows: SummaryRow[], input: RenderSummaryInput, compact: boo
           row.severity,
           STATE_LABEL[row.state],
           fileCell,
-          escapeCell(shortenFindingTitle(row.title)),
-          commentLink(row, input)
+          escapeCell(shortenFindingTitle(row.title))
         ];
     return `| ${cells.join(" | ")} |`;
   });
