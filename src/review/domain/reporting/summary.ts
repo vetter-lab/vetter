@@ -53,17 +53,17 @@ function renderTable(rows: SummaryRow[], input: RenderSummaryInput, compact: boo
   }
 
   const header = compact
-    ? "| Severity | State | File | Line |\n| --- | --- | --- | --- |"
-    : "| Severity | State | File | Line | Title | Link |\n| --- | --- | --- | --- | --- | --- |";
+    ? "| Severity | State | File |\n| --- | --- | --- |"
+    : "| Severity | State | File | Title | Link |\n| --- | --- | --- | --- | --- |";
 
   const lines = rows.map((row) => {
+    const fileCell = row.line !== null ? `${row.path}:${row.line}` : row.path;
     const cells = compact
-      ? [row.severity, STATE_LABEL[row.state], row.path, row.line !== null ? String(row.line) : "-"]
+      ? [row.severity, STATE_LABEL[row.state], fileCell]
       : [
           row.severity,
           STATE_LABEL[row.state],
-          row.path,
-          row.line !== null ? String(row.line) : "-",
+          fileCell,
           escapeCell(row.title),
           commentLink(input.owner, input.repo, input.pullRequestNumber, row.commentId)
         ];

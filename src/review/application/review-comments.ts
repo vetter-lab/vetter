@@ -32,7 +32,24 @@ export async function applyReconciliationPlan(input: {
     body: renderInlineBody(finding, false)
   }));
 
-  await gateway.createReview({ ...pullRequestRef, commitId: headSha, comments: reviewComments });
+  const createdComments = await gateway.createReview({ ...pullRequestRef, commitId: headSha, comments: reviewComments });
+
+  // Backfill the newly created comment IDs into plan.rows so the summary
+  // can link to them immediately rather than waiting for the next run.
+  const fingerprintToId = new Map<string, number>();
+  for (const [i, ci] of plan.createInline.entries()) {
+    const fp = ci.finding.fingerprint;
+    const id = createdComments[i]?.commentId;
+    if (id !== undefined) {
+      fingerprintToId.set(fp, id);
+    }
+  }
+  for (const row of plan.rows) {
+    const id = fingerprintToId.get(row.fingerprint);
+    if (id !== undefined) {
+      row.commentId = id;
+    }
+  }
 
   for (const update of plan.updateInline) {
     await gateway.updateReviewComment({
