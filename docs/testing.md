@@ -26,14 +26,13 @@ thread/comment state (`toExistingFindings` in
 Every inline comment Vetter writes carries a hidden HTML comment:
 
 ```text
-<!-- vetter:finding:v1 fingerprint="..." rule="..." severity="..." source="..." scope="..." title="..." bot-resolved="..." -->
+<!-- vetter:finding:v2 fingerprint="..." rule="..." severity="..." source="..." scope="..." title="..." anchor="..." bot-resolved="..." -->
 ```
 
 Current comments write canonical `P0`, `P1`, `P2`, and `P3` severity values.
-Comments written by older Vetter versions with `critical`, `major`, or `minor`
-are translated to `P0`, `P1`, or `P3` while they are read. Unknown severity
-values are not treated as Vetter-managed markers. The marker format remains
-`v1`, so existing comment state can be reconciled without a separate migration.
+Finding markers always use canonical `P0`, `P1`, `P2`, and `P3` severity values
+and require a verbatim code anchor. A marker without an anchor is not treated
+as Vetter-managed state.
 
 And the one summary comment carries:
 
@@ -77,6 +76,14 @@ that rule and path). Ambiguous fallback candidates are treated as no
 match, and a new finding/comment is created instead of risking a merge
 into the wrong thread.
 
+GitHub's `line` and `originalLine` are treated as location hints, not finding
+identity. For a finding with a persisted anchor, Vetter searches the previous
+and current file contents and updates the summary location when the anchor
+moves. It only marks the finding fixed when the anchor's old location is part
+of the current diff and the provider scope completed successfully. If the
+anchor occurs multiple times, Vetter keeps the previous location rather than
+guessing.
+
 ## Recovery limits (no-SQL tradeoffs)
 
 Because there is no durable queue or database:
@@ -116,6 +123,10 @@ source of truth either way.
   resolves the corresponding thread and marks it `fixed` in the summary — the
   inline comment is kept, not deleted. Findings outside the commit diff stay
   open for a later review that includes their location.
+- **A finding that only moves**: when unrelated lines are inserted or deleted,
+  the persisted anchor relocates the summary row but the finding remains
+  `open`. Vetter does not create a second review thread merely because GitHub
+  reports the original comment as outdated.
 - **A finding a developer manually resolves** (clicks "Resolve
   conversation" without Vetter reopening it): stays `suppressed`
   permanently. Vetter never reopens a thread it didn't resolve itself,

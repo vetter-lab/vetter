@@ -10,6 +10,7 @@ function marker(botResolved: boolean): string {
     source: "llm",
     scopeKey: "llm:same-rule:src/example.ts",
     title: "Same finding",
+    codeAnchor: "return unsafe(value);",
     botResolved
   });
 }

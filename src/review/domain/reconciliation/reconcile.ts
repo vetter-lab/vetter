@@ -22,6 +22,7 @@ export interface RenderableFinding {
   title: string;
   body: string;
   path: string;
+  codeAnchor: string;
   line: number | null;
 }
 
@@ -116,6 +117,7 @@ function toRenderable(finding: Finding): RenderableFinding {
     title: finding.title,
     body: finding.body,
     path: finding.path,
+    codeAnchor: finding.codeAnchor,
     line: finding.line
   };
 }
@@ -130,6 +132,7 @@ function existingToRenderable(existing: ExistingFinding): RenderableFinding {
     title: existing.title,
     body: existing.body,
     path: existing.path,
+    codeAnchor: existing.codeAnchor,
     line: existing.line
   };
 }

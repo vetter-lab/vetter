@@ -109,18 +109,12 @@ the normalized layer before schema validation. Configuration `version: 1`
 remains valid because this is a compatible input alias, not a new config
 format.
 
-### Existing finding marker migration
+### Finding marker format
 
-The existing `vetter:finding:v1` marker format remains readable. Marker
-parsing will accept canonical P0-P3 values and translate legacy marker values
-using the same mapping. Unknown severity values make the marker invalid and
-the comment is ignored as unmanaged state rather than being cast into the
-internal type.
-
-New and refreshed comments write only P0-P3 values. This lets old comments
-continue participating in reconciliation and causes their visible marker to
-be modernized whenever Vetter refreshes them. Existing fingerprints do not
-change because severity is not part of the fingerprint input.
+Finding markers use the v2 format with canonical P0-P3 values and a required
+verbatim code anchor. Comments without a valid v2 marker are ignored as
+unmanaged state. Existing fingerprints do not change because severity is not
+part of the fingerprint input.
 
 ### Static analyzer mapping
 

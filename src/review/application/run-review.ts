@@ -9,6 +9,7 @@ import { deduplicateFindings } from "../domain/findings/fingerprint.js";
 import { normalizeFinding } from "../domain/findings/normalize.js";
 import { evaluateCheckRun } from "../domain/reporting/check-run.js";
 import { parseSummaryRowMarkers } from "../domain/reconciliation/markers.js";
+import { relocateExistingFindings } from "../domain/reconciliation/relocate.js";
 import {
   reconcileFindings,
   type CurrentFindingInput,
@@ -84,6 +85,22 @@ function toPullRequestRef(context: ReviewContext): PullRequestRef {
   };
 }
 
+async function loadFileContents(
+  gateway: GitHubGateway,
+  pullRequestRef: PullRequestRef,
+  ref: string,
+  paths: Iterable<string>
+): Promise<Map<string, string | null>> {
+  const uniquePaths = [...new Set(paths)];
+  const entries = await Promise.all(
+    uniquePaths.map(async (path) => [
+      path,
+      await gateway.getFileContent({ ...pullRequestRef, ref, path }).catch(() => null)
+    ] as const)
+  );
+  return new Map(entries);
+}
+
 function toSummaryRow(existing: ExistingFinding): SummaryRow {
   return {
     fingerprint: existing.fingerprint,
@@ -133,13 +150,25 @@ export async function syncReviewSummary(input: SyncReviewSummaryInput): Promise<
   }
 
   const reviewState = await gateway.listReviewState({ ...pullRequestRef, botLogins });
+  const existingFindings = toExistingFindings(reviewState, botLogins);
+  const currentFiles = await loadFileContents(
+    gateway,
+    pullRequestRef,
+    context.headSha,
+    existingFindings.filter((finding) => finding.codeAnchor.length > 0).map((finding) => finding.path)
+  );
+  const relocated = relocateExistingFindings({
+    existing: existingFindings,
+    changedFiles: [],
+    currentFiles
+  });
   const existingSummary = await gateway.findSummaryComment({ ...pullRequestRef, botLogins });
   const rowsByFingerprint = new Map<string, SummaryRow>();
   const persistedRows = existingSummary ? parseSummaryRowMarkers(existingSummary.body).map(toPersistedSummaryRow) : [];
   for (const row of persistedRows) {
     rowsByFingerprint.set(row.fingerprint, row);
   }
-  for (const row of toExistingFindings(reviewState, botLogins).map(toSummaryRow)) {
+  for (const row of relocated.findings.map(toSummaryRow)) {
     rowsByFingerprint.set(row.fingerprint, row);
   }
   const rows = [...rowsByFingerprint.values()];
@@ -303,22 +332,27 @@ export async function runReview(input: RunReviewInput): Promise<RunReviewResult>
   }
 
   const reviewState = await gateway.listReviewState({ ...pullRequestRef, botLogins });
-  const existingFindings = toExistingFindings(reviewState, botLogins);
-  const reviewedExistingFingerprints = new Set(
-    existingFindings
-      .filter((existing) => {
-        const changedFile = parsedDiff.find((file) => file.path === existing.path);
-        if (!changedFile) {
-          return false;
-        }
-        if (changedFile.status === "deleted") {
-          return true;
-        }
-        return existing.line !== null &&
-          (changedFile.addedLines.includes(existing.line) || changedFile.removedLines.includes(existing.line));
-      })
-      .map((existing) => existing.fingerprint)
+  const persistedFindings = toExistingFindings(reviewState, botLogins);
+  const currentFiles = await loadFileContents(
+    gateway,
+    pullRequestRef,
+    context.headSha,
+    persistedFindings.filter((finding) => finding.codeAnchor.length > 0).map((finding) => finding.path)
   );
+  const baseFiles = await loadFileContents(
+    gateway,
+    pullRequestRef,
+    context.reviewBaseSha ?? context.baseSha,
+    persistedFindings.filter((finding) => finding.codeAnchor.length > 0).map((finding) => finding.path)
+  );
+  const relocated = relocateExistingFindings({
+    existing: persistedFindings,
+    changedFiles: parsedDiff,
+    currentFiles,
+    baseFiles
+  });
+  const existingFindings = relocated.findings;
+  const reviewedExistingFingerprints = relocated.reviewedFingerprints;
   const existingSummary = await gateway.findSummaryComment({ ...pullRequestRef, botLogins });
   const persistedSummaryRows = existingSummary
     ? parseSummaryRowMarkers(existingSummary.body).map(toPersistedSummaryRow)

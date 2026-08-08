@@ -30,6 +30,7 @@ function existingMarker(input: FindingDraft, botResolved: boolean): string {
     source: input.source,
     scopeKey: input.scopeKey,
     title: input.title,
+    codeAnchor: input.codeAnchor,
     botResolved
   });
 }
@@ -147,4 +148,112 @@ it("refreshes manual suppression and fixes an outdated finding in one commit run
     expect.objectContaining({ line: 2, state: "suppressed" })
   );
   expect(rows.find((row) => row.fingerprint === computeFingerprint(fixed))?.state).toBe("fixed");
+});
+
+it("relocates an unchanged finding after an unrelated insertion without closing it", async () => {
+  const moved = finding("moved-rule", "Moved finding", 2);
+  moved.codeAnchor = "return unsafe(value);";
+  const previousContent = ["function run(value) {", "  return unsafe(value);", "}"].join("\n");
+  const currentContent = ["const header = true;", previousContent].join("\n");
+  const insertionPatch = [
+    "@@ -1,3 +1,4 @@",
+    "+const header = true;",
+    " function run(value) {",
+    "   return unsafe(value);",
+    " }"
+  ].join("\n");
+  let summaryBody = "";
+  const resolvedThreads: string[] = [];
+  const gateway: GitHubGateway = {
+    async getPullRequest() {
+      return {
+        number: 1,
+        state: "open",
+        headSha: "head-sha",
+        headRef: "feature",
+        baseSha: "base-sha",
+        baseRef: "main"
+      };
+    },
+    async findOpenPullRequestsForHead() {
+      return [];
+    },
+    async listChangedFiles() {
+      return [{ path: moved.path, status: "modified", patch: insertionPatch }];
+    },
+    async getFileContent(input) {
+      return input.ref === "previous-sha" ? previousContent : currentContent;
+    },
+    async listReviewState() {
+      return {
+        reviewThreads: [
+          {
+            threadId: "moved-thread",
+            isResolved: false,
+            resolvedByLogin: null,
+            comments: [
+              {
+                commentId: 7,
+                body: existingMarker(moved, false),
+                path: moved.path,
+                line: null,
+                originalLine: 2,
+                authorLogin: "github-actions"
+              }
+            ]
+          }
+        ],
+        issueComments: []
+      };
+    },
+    async findSummaryComment() {
+      return null;
+    },
+    async createReview() {
+      return [];
+    },
+    async updateReviewComment() {},
+    async createIssueComment(input) {
+      summaryBody = input.body;
+      return { commentId: 8 };
+    },
+    async updateIssueComment(input) {
+      summaryBody = input.body;
+    },
+    async deleteIssueComment() {},
+    async resolveThread(input) {
+      resolvedThreads.push(input.threadId);
+    },
+    async reopenThread() {},
+    async upsertCheckRun() {}
+  };
+
+  const result = await runReview({
+    gateway,
+    context: {
+      repository: { owner: "owner", name: "repo", fullName: "owner/repo" },
+      pullRequestNumber: 1,
+      baseSha: "base-sha",
+      headSha: "head-sha",
+      reviewBaseSha: "previous-sha",
+      eventId: "event-1",
+      source: "pull_request"
+    },
+    config: loadConfig({ runtime: "action" }),
+    modelProvider: {
+      async review() {
+        return { findings: [], scopeKeys: ["llm:src/example.ts"] };
+      }
+    },
+    analyzerProviders: [],
+    botLogins: new Set(["github-actions[bot]"]),
+    repositoryPath: "/tmp/repository",
+    contextFiles: []
+  });
+
+  expect(result.status).toBe("completed");
+  expect(resolvedThreads).toEqual([]);
+  expect(parseSummaryRowMarkers(summaryBody).find((row) => row.fingerprint === computeFingerprint(moved))).toEqual(
+    expect.objectContaining({ line: 3, state: "open" })
+  );
 });

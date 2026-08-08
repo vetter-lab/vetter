@@ -15,6 +15,7 @@ describe("renderInlineBody", () => {
         title,
         body: "Use a pinned commit.",
         path: ".github/workflows/vetter-action.yml",
+        codeAnchor: "uses: actions/checkout@main",
         line: 21
       },
       false
