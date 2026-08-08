@@ -28,6 +28,7 @@ review:
   enabled: true
   incremental: true
   model: gpt-4o-mini
+  language: en
   maxDiffBytes: 200000
 
 events:
@@ -76,6 +77,7 @@ omitted, both runtimes are allowed to act.
 | `enabled` | boolean | `true` | Whether the LLM provider runs at all. |
 | `incremental` | `true` (literal) | `true` | Reserved; must always be `true` — full-file review is not supported. |
 | `model` | string | `gpt-4o-mini` | Model name passed to the OpenAI-compatible provider. Can be overridden by `model-name` (Action) or `VETTER_MODEL_NAME` (App). |
+| `language` | string | `en` | Language for LLM finding titles and bodies, summary comments, and Check Run text. Use a locale such as `zh-CN`, `ja-JP`, or `en`. |
 | `maxDiffBytes` | positive integer | `200000` | Reserved cap on diff size sent to the model. |
 
 ### `events.push`

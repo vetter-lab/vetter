@@ -21,6 +21,7 @@ export const builtInDefaults = {
     enabled: true,
     incremental: true,
     model: "gpt-4o-mini",
+    language: "en",
     maxDiffBytes: 200_000
   },
   events: {

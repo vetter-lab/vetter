@@ -15,6 +15,18 @@ describe("buildReviewPrompt", () => {
     expect(prompt.system).toContain("UNTRUSTED DATA");
   });
 
+  it("instructs the model to write findings in the configured language", () => {
+    const prompt = buildReviewPrompt({
+      diff: "+const value = 1;",
+      contextFiles: [],
+      model: "test",
+      language: "zh-CN"
+    });
+
+    expect(prompt.system).toContain("configured response language: zh-CN");
+    expect(prompt.system).toContain("natural-language finding title and body");
+  });
+
   it("redacts repository secrets before interpolation", () => {
     const prompt = buildReviewPrompt({
       diff: "+const token = 'sk-12345678901234567890';",

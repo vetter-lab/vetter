@@ -8,9 +8,11 @@ import type { FindingDraft } from "../../../src/review/domain/types.js";
 test("passes file headers and paths to the model provider", async () => {
   const patch = ["@@ -20,2 +20,3 @@", " old", "+new", " end"].join("\n");
   let receivedDiff = "";
+  let receivedLanguage = "";
   const modelProvider: ModelProvider = {
     async review(input) {
       receivedDiff = input.diff;
+      receivedLanguage = input.language ?? "";
       return { findings: [], scopeKeys: [] };
     }
   };
@@ -64,7 +66,10 @@ test("passes file headers and paths to the model provider", async () => {
       eventId: "event-1",
       source: "pull_request"
     },
-    config: loadConfig({ runtime: "action" }),
+    config: loadConfig({
+      repositoryText: "review:\n  language: zh-CN\n",
+      runtime: "action"
+    }),
     modelProvider,
     analyzerProviders: [],
     botLogins: new Set(["github-actions[bot]"]),
@@ -80,6 +85,7 @@ test("passes file headers and paths to the model provider", async () => {
       patch
     ].join("\n")
   );
+  expect(receivedLanguage).toBe("zh-CN");
 });
 
 test("does not create duplicate inline comments for duplicate findings", async () => {

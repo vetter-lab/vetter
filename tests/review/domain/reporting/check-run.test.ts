@@ -33,4 +33,22 @@ describe("evaluateCheckRun", () => {
       expect(result.summary).toContain(`- **${severity}**: 1 open`);
     }
   });
+
+  it("localizes the Check Run text", () => {
+    const result = evaluateCheckRun({
+      rows: [row("P1")],
+      severity: {
+        P0: { blockMerge: false },
+        P1: { blockMerge: false },
+        P2: { blockMerge: false },
+        P3: { blockMerge: false }
+      },
+      failures: [],
+      language: "zh-CN"
+    });
+
+    expect(result.title).toBe("Vetter 发现 1 个未解决问题");
+    expect(result.summary).toContain("未解决问题: 1");
+    expect(result.summary).toContain("阻止合并: 否");
+  });
 });
