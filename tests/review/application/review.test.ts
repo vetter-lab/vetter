@@ -242,7 +242,7 @@ test("links summary file locations to the pull request changes page", async () =
   });
 
   expect(summaryBody).toContain(
-    '<a href="https://github.com/vetter-lab/demo/pull/1/changes/BASEbase-sha" target="_blank" rel="noopener noreferrer">src/example.ts:2</a>'
+    '<a href="https://github.com/vetter-lab/demo/pull/1/changes/BASE..head-sha#r42">src/example.ts:2</a>'
   );
   expect(summaryBody).not.toContain("| Link |");
 });
