@@ -77,7 +77,9 @@ describe("syncReviewSummary", () => {
           authorLogin: "vetter[bot]"
         };
       },
-      async createReview() {},
+      async createReview() {
+        return [];
+      },
       async updateReviewComment() {},
       async createIssueComment() {
         createdSummary = true;

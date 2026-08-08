@@ -213,23 +213,25 @@ export function createOctokitGateway(octokit: Octokit): GitHubGateway {
       return issueComments.find((comment) => isSummaryComment(comment.body)) ?? null;
     },
 
-    async createReview(input: CreateReviewInput): Promise<void> {
+    async createReview(input: CreateReviewInput): Promise<{ commentId: number }[]> {
       if (input.comments.length === 0) {
-        return;
+        return [];
       }
-      await octokit.rest.pulls.createReview({
-        owner: input.owner,
-        repo: input.repo,
-        pull_number: input.number,
-        commit_id: input.commitId,
-        event: "COMMENT",
-        comments: input.comments.map((comment) => ({
+      const results: { commentId: number }[] = [];
+      for (const comment of input.comments) {
+        const { data } = await octokit.rest.pulls.createReviewComment({
+          owner: input.owner,
+          repo: input.repo,
+          pull_number: input.number,
+          commit_id: input.commitId,
           path: comment.path,
+          body: comment.body,
           line: comment.line,
-          side: comment.side,
-          body: comment.body
-        }))
-      });
+          side: comment.side
+        });
+        results.push({ commentId: data.id });
+      }
+      return results;
     },
 
     async updateReviewComment(input: {

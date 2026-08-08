@@ -45,7 +45,13 @@ export interface GitHubGateway {
 
   findSummaryComment(input: PullRequestRef & { botLogins: Set<string> }): Promise<IssueCommentSnapshot | null>;
 
-  createReview(input: CreateReviewInput): Promise<void>;
+  /**
+   * Creates one review comment per input comment and returns the database
+   * id of each created comment, in the same order as `input.comments`.
+   * Returning the ids lets the caller link the summary rows to the newly
+   * created inline comments in the same run.
+   */
+  createReview(input: CreateReviewInput): Promise<{ commentId: number }[]>;
 
   updateReviewComment(input: { owner: string; repo: string; commentId: number; body: string }): Promise<void>;
 

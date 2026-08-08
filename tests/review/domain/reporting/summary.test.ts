@@ -3,7 +3,7 @@ import { renderSummaryComment } from "../../../../src/review/domain/reporting/su
 import type { SummaryRow } from "../../../../src/review/domain/reconciliation/reconcile.js";
 import type { Severity } from "../../../../src/review/domain/types.js";
 
-function row(severity: Severity, path: string): SummaryRow {
+function row(severity: Severity, path: string, overrides?: Partial<SummaryRow>): SummaryRow {
   return {
     fingerprint: `fingerprint-${severity}`,
     severity,
@@ -11,7 +11,8 @@ function row(severity: Severity, path: string): SummaryRow {
     path,
     line: 1,
     state: "open",
-    commentId: null
+    commentId: null,
+    ...overrides
   };
 }
 
@@ -29,5 +30,38 @@ describe("renderSummaryComment", () => {
     expect(positions[0]).toBeLessThan(positions[1]!);
     expect(positions[1]).toBeLessThan(positions[2]!);
     expect(positions[2]).toBeLessThan(positions[3]!);
+  });
+
+  it("merges file and line into a single column", () => {
+    const body = renderSummaryComment({
+      rows: [row("P0", "src/example.ts")],
+      owner: "owner",
+      repo: "repo",
+      pullRequestNumber: 1
+    });
+
+    expect(body).toContain("| P0 | 🔴 open | src/example.ts:1 | P0 finding | - |");
+  });
+
+  it("includes a link when commentId is set", () => {
+    const body = renderSummaryComment({
+      rows: [row("P0", "src/example.ts", { commentId: 42 })],
+      owner: "owner",
+      repo: "repo",
+      pullRequestNumber: 1
+    });
+
+    expect(body).toContain("[#42](https://github.com/owner/repo/pull/1#discussion_r42)");
+  });
+
+  it("shows path without line when line is null", () => {
+    const body = renderSummaryComment({
+      rows: [row("P0", "src/summary-only.ts", { line: null })],
+      owner: "owner",
+      repo: "repo",
+      pullRequestNumber: 1
+    });
+
+    expect(body).toContain("| P0 | 🔴 open | src/summary-only.ts |");
   });
 });
