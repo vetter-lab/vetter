@@ -42,3 +42,4 @@ pnpm build
 - [docs/action-setup.md](docs/action-setup.md) — Workflow setup, permissions, secrets, concurrency.
 - [docs/configuration.md](docs/configuration.md) — `.vetter.yml` reference and override precedence.
 - [docs/testing.md](docs/testing.md) — Finding state semantics and no-SQL recovery limits.
+- [docs/ai-pull-request.md](docs/ai-pull-request.md) — AI workflow for creating focused pull requests.
