@@ -90,7 +90,8 @@ function toSummaryRow(existing: ExistingFinding): SummaryRow {
     path: existing.path,
     line: existing.line,
     state: existing.state,
-    commentId: existing.commentId
+    commentId: existing.commentId,
+    ...(existing.commentUrl !== undefined ? { commentUrl: existing.commentUrl } : {})
   };
 }
 

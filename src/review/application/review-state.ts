@@ -33,6 +33,7 @@ export function toExistingFindings(snapshot: ReviewStateSnapshot, botLogins: Set
         path: comment.path,
         line: comment.line,
         commentId: comment.commentId,
+        ...(comment.htmlUrl !== undefined ? { commentUrl: comment.htmlUrl } : {}),
         threadId: thread.threadId,
         isResolved: thread.isResolved,
         resolvedByLogin: thread.resolvedByLogin,

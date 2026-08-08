@@ -53980,6 +53980,7 @@ const REVIEW_THREADS_QUERY = `
             comments(first: 50) {
               nodes {
                 databaseId
+                url
                 body
                 path
                 line
@@ -54094,6 +54095,7 @@ function createOctokitGateway(octokit) {
                     .filter((comment) => isBotOwnedFindingComment(comment, input.botLogins))
                     .map((comment) => ({
                     commentId: comment.databaseId ?? -1,
+                    htmlUrl: comment.url,
                     body: comment.body,
                     path: comment.path,
                     line: comment.line,
@@ -54123,7 +54125,7 @@ function createOctokitGateway(octokit) {
                     line: comment.line,
                     side: comment.side
                 });
-                results.push({ commentId: data.id });
+                results.push({ commentId: data.id, htmlUrl: data.html_url });
             }
             return results;
         },
@@ -67621,7 +67623,7 @@ function existingToRenderable(existing) {
         line: existing.line
     };
 }
-function rowFromFinding(finding, state, commentId) {
+function rowFromFinding(finding, state, commentId, commentUrl) {
     return {
         fingerprint: finding.fingerprint,
         severity: finding.severity,
@@ -67629,7 +67631,8 @@ function rowFromFinding(finding, state, commentId) {
         path: finding.path,
         line: finding.line,
         state,
-        commentId
+        commentId,
+        ...(commentUrl !== undefined ? { commentUrl } : {})
     };
 }
 function rowFromExisting(existing, state) {
@@ -67640,7 +67643,8 @@ function rowFromExisting(existing, state) {
         path: existing.path,
         line: existing.line,
         state,
-        commentId: existing.commentId
+        commentId: existing.commentId,
+        ...(existing.commentUrl !== undefined ? { commentUrl: existing.commentUrl } : {})
     };
 }
 /**
@@ -67679,15 +67683,15 @@ function reconcileFindings(input) {
                         reopenThreads.push(match.threadId);
                     }
                     updateInline.push({ commentId: match.commentId, finding: toRenderable(finding), botResolved: false });
-                    rows.push(rowFromFinding(finding, "open", match.commentId));
+                    rows.push(rowFromFinding(finding, "open", match.commentId, match.commentUrl));
                 }
                 else {
-                    rows.push(rowFromFinding(finding, "suppressed", match.commentId));
+                    rows.push(rowFromFinding(finding, "suppressed", match.commentId, match.commentUrl));
                 }
                 continue;
             }
             updateInline.push({ commentId: match.commentId, finding: toRenderable(finding), botResolved: false });
-            rows.push(rowFromFinding(finding, "open", match.commentId));
+            rows.push(rowFromFinding(finding, "open", match.commentId, match.commentUrl));
             continue;
         }
         if (anchor) {
@@ -67726,7 +67730,40 @@ function reconcileFindings(input) {
     return { createInline, updateInline, resolveThreads, reopenThreads, summaryOnly, rows };
 }
 
+;// CONCATENATED MODULE: ./src/review/domain/findings/title.ts
+const MAX_TITLE_WORDS = 10;
+const MAX_TITLE_LENGTH = 96;
+const ELLIPSIS = "...";
+/**
+ * Keeps user-visible finding titles useful in compact comment tables while
+ * leaving the original title available for the hidden finding marker.
+ */
+function shortenFindingTitle(title) {
+    const normalized = title.trim().replace(/\s+/g, " ");
+    if (normalized.length === 0) {
+        return "Finding";
+    }
+    const words = normalized.split(" ");
+    if (words.length <= MAX_TITLE_WORDS && normalized.length <= MAX_TITLE_LENGTH) {
+        return normalized;
+    }
+    const maxPrefixLength = MAX_TITLE_LENGTH - ELLIPSIS.length;
+    let prefix = "";
+    for (const word of words.slice(0, MAX_TITLE_WORDS - 1)) {
+        const candidate = prefix.length === 0 ? word : `${prefix} ${word}`;
+        if (candidate.length > maxPrefixLength) {
+            break;
+        }
+        prefix = candidate;
+    }
+    if (prefix.length === 0) {
+        prefix = normalized.slice(0, maxPrefixLength).trimEnd();
+    }
+    return `${prefix}${ELLIPSIS}`;
+}
+
 ;// CONCATENATED MODULE: ./src/review/domain/reporting/summary.ts
+
 
 
 const SEVERITY_ORDER = Object.fromEntries(SEVERITIES.map((severity, index) => [severity, index]));
@@ -67755,11 +67792,26 @@ function sortRows(rows) {
 function escapeCell(text) {
     return text.replace(/\|/g, "\\|").replace(/\r?\n/g, " ");
 }
-function commentLink(owner, repo, pullRequestNumber, commentId) {
-    if (commentId === null) {
+function fallbackCommentUrl(owner, repo, pullRequestNumber, commentId) {
+    return `https://github.com/${owner}/${repo}/pull/${String(pullRequestNumber)}#discussion_r${String(commentId)}`;
+}
+function commentUrl(row, input) {
+    if (row.commentId === null) {
+        return null;
+    }
+    return row.commentUrl ?? fallbackCommentUrl(input.owner, input.repo, input.pullRequestNumber, row.commentId);
+}
+function commentLink(row, input) {
+    const url = commentUrl(row, input);
+    if (url === null || row.commentId === null) {
         return "-";
     }
-    return `[#${String(commentId)}](https://github.com/${owner}/${repo}/pull/${String(pullRequestNumber)}#discussion_r${String(commentId)})`;
+    return `[#${String(row.commentId)}](${url})`;
+}
+function locationCell(row, input) {
+    const fileCell = escapeCell(row.line !== null ? `${row.path}:${row.line}` : row.path);
+    const url = commentUrl(row, input);
+    return url === null ? fileCell : `[${fileCell}](${url})`;
 }
 function renderTable(rows, input, compact) {
     if (rows.length === 0) {
@@ -67769,15 +67821,15 @@ function renderTable(rows, input, compact) {
         ? "| Severity | State | File |\n| --- | --- | --- |"
         : "| Severity | State | File | Title | Link |\n| --- | --- | --- | --- | --- |";
     const lines = rows.map((row) => {
-        const fileCell = row.line !== null ? `${row.path}:${row.line}` : row.path;
+        const fileCell = locationCell(row, input);
         const cells = compact
             ? [row.severity, STATE_LABEL[row.state], fileCell]
             : [
                 row.severity,
                 STATE_LABEL[row.state],
                 fileCell,
-                escapeCell(row.title),
-                commentLink(input.owner, input.repo, input.pullRequestNumber, row.commentId)
+                escapeCell(shortenFindingTitle(row.title)),
+                commentLink(row, input)
             ];
         return `| ${cells.join(" | ")} |`;
     });
@@ -67827,6 +67879,7 @@ function renderSummaryComment(input) {
 
 ;// CONCATENATED MODULE: ./src/review/application/review-comments.ts
 
+
 function renderInlineBody(finding, botResolved) {
     const marker = buildFindingMarker({
         fingerprint: finding.fingerprint,
@@ -67837,7 +67890,13 @@ function renderInlineBody(finding, botResolved) {
         title: finding.title,
         botResolved
     });
-    return [`**[${finding.severity.toUpperCase()}] ${finding.title}**`, "", finding.body, "", marker].join("\n");
+    return [
+        `**[${finding.severity.toUpperCase()}] ${shortenFindingTitle(finding.title)}**`,
+        "",
+        finding.body,
+        "",
+        marker
+    ].join("\n");
 }
 async function applyReconciliationPlan(input) {
     const { gateway, pullRequestRef, headSha, plan } = input;
@@ -67848,20 +67907,23 @@ async function applyReconciliationPlan(input) {
         body: renderInlineBody(finding, false)
     }));
     const createdComments = await gateway.createReview({ ...pullRequestRef, commitId: headSha, comments: reviewComments });
-    // Backfill the newly created comment IDs into plan.rows so the summary
-    // can link to them immediately rather than waiting for the next run.
-    const fingerprintToId = new Map();
+    // Backfill the newly created comment references into plan.rows so the
+    // summary can link to them immediately rather than waiting for the next run.
+    const fingerprintToComment = new Map();
     for (const [i, ci] of plan.createInline.entries()) {
         const fp = ci.finding.fingerprint;
-        const id = createdComments[i]?.commentId;
-        if (id !== undefined) {
-            fingerprintToId.set(fp, id);
+        const createdComment = createdComments[i];
+        if (createdComment !== undefined) {
+            fingerprintToComment.set(fp, createdComment);
         }
     }
     for (const row of plan.rows) {
-        const id = fingerprintToId.get(row.fingerprint);
-        if (id !== undefined) {
-            row.commentId = id;
+        const createdComment = fingerprintToComment.get(row.fingerprint);
+        if (createdComment !== undefined) {
+            row.commentId = createdComment.commentId;
+            if (createdComment.htmlUrl !== undefined) {
+                row.commentUrl = createdComment.htmlUrl;
+            }
         }
     }
     for (const update of plan.updateInline) {
@@ -67910,6 +67972,7 @@ function toExistingFindings(snapshot, botLogins) {
                 path: comment.path,
                 line: comment.line,
                 commentId: comment.commentId,
+                ...(comment.htmlUrl !== undefined ? { commentUrl: comment.htmlUrl } : {}),
                 threadId: thread.threadId,
                 isResolved: thread.isResolved,
                 resolvedByLogin: thread.resolvedByLogin,
@@ -67961,7 +68024,8 @@ function toSummaryRow(existing) {
         path: existing.path,
         line: existing.line,
         state: existing.state,
-        commentId: existing.commentId
+        commentId: existing.commentId,
+        ...(existing.commentUrl !== undefined ? { commentUrl: existing.commentUrl } : {})
     };
 }
 function toPersistedSummaryRow(input) {

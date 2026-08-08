@@ -1,5 +1,6 @@
 import type {
   CheckRunInput,
+  CreatedReviewComment,
   CreateReviewInput,
   IssueCommentSnapshot,
   PullRequestRef,
@@ -46,12 +47,12 @@ export interface GitHubGateway {
   findSummaryComment(input: PullRequestRef & { botLogins: Set<string> }): Promise<IssueCommentSnapshot | null>;
 
   /**
-   * Creates one review comment per input comment and returns the database
-   * id of each created comment, in the same order as `input.comments`.
-   * Returning the ids lets the caller link the summary rows to the newly
-   * created inline comments in the same run.
+   * Creates one review comment per input comment and returns each database id
+   * and canonical URL in the same order as `input.comments`. Returning these
+   * references lets the caller link summary rows to the newly created inline
+   * comments in the same run.
    */
-  createReview(input: CreateReviewInput): Promise<{ commentId: number }[]>;
+  createReview(input: CreateReviewInput): Promise<CreatedReviewComment[]>;
 
   updateReviewComment(input: { owner: string; repo: string; commentId: number; body: string }): Promise<void>;
 

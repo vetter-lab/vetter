@@ -52,6 +52,32 @@ describe("renderSummaryComment", () => {
     });
 
     expect(body).toContain("[#42](https://github.com/owner/repo/pull/1#discussion_r42)");
+    expect(body).toContain(
+      "[src/example.ts:1](https://github.com/owner/repo/pull/1#discussion_r42)"
+    );
+  });
+
+  it("uses the canonical comment URL and shortens long titles", () => {
+    const body = renderSummaryComment({
+      rows: [
+        row("P1", ".github/workflows/vetter-action.yml", {
+          title:
+            "GitHub Actions step uses a mutable tag or branch reference. Tags and branch names can be silently repointed",
+          line: 21,
+          commentId: 42,
+          commentUrl: "https://github.com/owner/repo/pull/1#discussion_r42"
+        })
+      ],
+      owner: "owner",
+      repo: "repo",
+      pullRequestNumber: 1
+    });
+
+    expect(body).toContain(
+      "[.github/workflows/vetter-action.yml:21](https://github.com/owner/repo/pull/1#discussion_r42)"
+    );
+    expect(body).toContain("GitHub Actions step uses a mutable tag or branch...");
+    expect(body).not.toContain("Tags and branch names can be silently repointed");
   });
 
   it("shows path without line when line is null", () => {

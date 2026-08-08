@@ -45,6 +45,8 @@ export interface SummaryRow {
   line: number | null;
   state: FindingState;
   commentId: number | null;
+  /** Canonical GitHub URL for the inline comment, when available. */
+  commentUrl?: string;
 }
 
 export interface ReconciliationPlan {
@@ -117,7 +119,12 @@ function existingToRenderable(existing: ExistingFinding): RenderableFinding {
   };
 }
 
-function rowFromFinding(finding: Finding, state: FindingState, commentId: number | null): SummaryRow {
+function rowFromFinding(
+  finding: Finding,
+  state: FindingState,
+  commentId: number | null,
+  commentUrl?: string
+): SummaryRow {
   return {
     fingerprint: finding.fingerprint,
     severity: finding.severity,
@@ -125,7 +132,8 @@ function rowFromFinding(finding: Finding, state: FindingState, commentId: number
     path: finding.path,
     line: finding.line,
     state,
-    commentId
+    commentId,
+    ...(commentUrl !== undefined ? { commentUrl } : {})
   };
 }
 
@@ -137,7 +145,8 @@ function rowFromExisting(existing: ExistingFinding, state: FindingState): Summar
     path: existing.path,
     line: existing.line,
     state,
-    commentId: existing.commentId
+    commentId: existing.commentId,
+    ...(existing.commentUrl !== undefined ? { commentUrl: existing.commentUrl } : {})
   };
 }
 
@@ -182,15 +191,15 @@ export function reconcileFindings(input: ReconcileInput): ReconciliationPlan {
             reopenThreads.push(match.threadId);
           }
           updateInline.push({ commentId: match.commentId, finding: toRenderable(finding), botResolved: false });
-          rows.push(rowFromFinding(finding, "open", match.commentId));
+          rows.push(rowFromFinding(finding, "open", match.commentId, match.commentUrl));
         } else {
-          rows.push(rowFromFinding(finding, "suppressed", match.commentId));
+          rows.push(rowFromFinding(finding, "suppressed", match.commentId, match.commentUrl));
         }
         continue;
       }
 
       updateInline.push({ commentId: match.commentId, finding: toRenderable(finding), botResolved: false });
-      rows.push(rowFromFinding(finding, "open", match.commentId));
+      rows.push(rowFromFinding(finding, "open", match.commentId, match.commentUrl));
       continue;
     }
 

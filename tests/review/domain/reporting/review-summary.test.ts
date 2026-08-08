@@ -25,6 +25,7 @@ describe("syncReviewSummary", () => {
           comments: [
             {
               commentId: 7,
+              htmlUrl: "https://github.com/owner/repo/pull/1#discussion_r7",
               body: marker,
               path: "src/example.ts",
               line: 12,
@@ -113,6 +114,9 @@ describe("syncReviewSummary", () => {
     expect(result.status).toBe("completed");
     expect(updatedSummary).toContain("suppressed");
     expect(updatedSummary).toContain("src/summary-only.ts");
+    expect(updatedSummary).toContain(
+      "[src/example.ts:12](https://github.com/owner/repo/pull/1#discussion_r7)"
+    );
     expect(createdSummary).toBe(false);
     expect(capturedCheckRun.value?.conclusion).toBe("success");
   });
