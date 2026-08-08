@@ -38,6 +38,8 @@ export interface ExistingFinding {
   path: string;
   line: number | null;
   commentId: number;
+  /** Canonical GitHub URL for the inline comment, when available. */
+  commentUrl?: string;
   threadId: string | null;
   isResolved: boolean;
   resolvedByLogin: string | null;

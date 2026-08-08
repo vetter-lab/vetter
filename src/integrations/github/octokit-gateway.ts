@@ -3,6 +3,7 @@ import { isFindingComment, isSummaryComment } from "../../review/domain/reconcil
 import type { ChangedFileEntry, GitHubGateway } from "./gateway.js";
 import type {
   CheckRunInput,
+  CreatedReviewComment,
   CreateReviewInput,
   IssueCommentSnapshot,
   PullRequestRef,
@@ -16,6 +17,7 @@ const CHECK_RUN_NAME = "vetter / code-review";
 
 interface GraphQlThreadComment {
   databaseId: number | null;
+  url: string;
   body: string;
   path: string;
   line: number | null;
@@ -54,6 +56,7 @@ const REVIEW_THREADS_QUERY = `
             comments(first: 50) {
               nodes {
                 databaseId
+                url
                 body
                 path
                 line
@@ -194,6 +197,7 @@ export function createOctokitGateway(octokit: Octokit): GitHubGateway {
           .filter((comment) => isBotOwnedFindingComment(comment, input.botLogins))
           .map((comment): ReviewThreadComment => ({
             commentId: comment.databaseId ?? -1,
+            htmlUrl: comment.url,
             body: comment.body,
             path: comment.path,
             line: comment.line,
@@ -213,11 +217,11 @@ export function createOctokitGateway(octokit: Octokit): GitHubGateway {
       return issueComments.find((comment) => isSummaryComment(comment.body)) ?? null;
     },
 
-    async createReview(input: CreateReviewInput): Promise<{ commentId: number }[]> {
+    async createReview(input: CreateReviewInput): Promise<CreatedReviewComment[]> {
       if (input.comments.length === 0) {
         return [];
       }
-      const results: { commentId: number }[] = [];
+      const results: CreatedReviewComment[] = [];
       for (const comment of input.comments) {
         const { data } = await octokit.rest.pulls.createReviewComment({
           owner: input.owner,
@@ -229,7 +233,7 @@ export function createOctokitGateway(octokit: Octokit): GitHubGateway {
           line: comment.line,
           side: comment.side
         });
-        results.push({ commentId: data.id });
+        results.push({ commentId: data.id, htmlUrl: data.html_url });
       }
       return results;
     },

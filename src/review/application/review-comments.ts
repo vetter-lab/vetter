@@ -1,5 +1,6 @@
 import type { GitHubGateway } from "../../integrations/github/gateway.js";
 import type { CreateReviewCommentInput, PullRequestRef } from "../../integrations/github/types.js";
+import { shortenFindingTitle } from "../domain/findings/title.js";
 import { buildFindingMarker } from "../domain/reconciliation/markers.js";
 import type { ReconciliationPlan, RenderableFinding } from "../domain/reconciliation/reconcile.js";
 
@@ -14,7 +15,13 @@ export function renderInlineBody(finding: RenderableFinding, botResolved: boolea
     botResolved
   });
 
-  return [`**[${finding.severity.toUpperCase()}] ${finding.title}**`, "", finding.body, "", marker].join("\n");
+  return [
+    `**[${finding.severity.toUpperCase()}] ${shortenFindingTitle(finding.title)}**`,
+    "",
+    finding.body,
+    "",
+    marker
+  ].join("\n");
 }
 
 export async function applyReconciliationPlan(input: {
@@ -34,20 +41,23 @@ export async function applyReconciliationPlan(input: {
 
   const createdComments = await gateway.createReview({ ...pullRequestRef, commitId: headSha, comments: reviewComments });
 
-  // Backfill the newly created comment IDs into plan.rows so the summary
-  // can link to them immediately rather than waiting for the next run.
-  const fingerprintToId = new Map<string, number>();
+  // Backfill the newly created comment references into plan.rows so the
+  // summary can link to them immediately rather than waiting for the next run.
+  const fingerprintToComment = new Map<string, { commentId: number; htmlUrl?: string }>();
   for (const [i, ci] of plan.createInline.entries()) {
     const fp = ci.finding.fingerprint;
-    const id = createdComments[i]?.commentId;
-    if (id !== undefined) {
-      fingerprintToId.set(fp, id);
+    const createdComment = createdComments[i];
+    if (createdComment !== undefined) {
+      fingerprintToComment.set(fp, createdComment);
     }
   }
   for (const row of plan.rows) {
-    const id = fingerprintToId.get(row.fingerprint);
-    if (id !== undefined) {
-      row.commentId = id;
+    const createdComment = fingerprintToComment.get(row.fingerprint);
+    if (createdComment !== undefined) {
+      row.commentId = createdComment.commentId;
+      if (createdComment.htmlUrl !== undefined) {
+        row.commentUrl = createdComment.htmlUrl;
+      }
     }
   }
 

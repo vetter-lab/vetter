@@ -16,10 +16,18 @@ export interface PullRequestSnapshot {
 export interface ReviewThreadComment {
   /** REST-style database id, usable with `pulls.updateReviewComment`. */
   commentId: number;
+  /** Canonical GitHub URL for this review comment, when available. */
+  htmlUrl?: string;
   body: string;
   path: string;
   line: number | null;
   authorLogin: string | null;
+}
+
+export interface CreatedReviewComment {
+  commentId: number;
+  /** Canonical GitHub URL returned by the create-comment API. */
+  htmlUrl?: string;
 }
 
 export interface ReviewThreadSnapshot {
