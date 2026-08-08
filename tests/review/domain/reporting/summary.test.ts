@@ -22,7 +22,8 @@ describe("renderSummaryComment", () => {
       rows: [row("P3", "p3.ts"), row("P1", "p1.ts"), row("P0", "p0.ts"), row("P2", "p2.ts")],
       owner: "owner",
       repo: "repo",
-      pullRequestNumber: 1
+      pullRequestNumber: 1,
+      baseSha: "base-sha"
     });
 
     const positions = ["| P0 |", "| P1 |", "| P2 |", "| P3 |"].map((value) => body.indexOf(value));
@@ -37,44 +38,49 @@ describe("renderSummaryComment", () => {
       rows: [row("P0", "src/example.ts")],
       owner: "owner",
       repo: "repo",
-      pullRequestNumber: 1
+      pullRequestNumber: 1,
+      baseSha: "base-sha"
     });
 
-    expect(body).toContain("| P0 | 🔴 open | src/example.ts:1 | P0 finding | - |");
+    expect(body).toContain(
+      '| P0 | 🔴 open | <a href="https://github.com/owner/repo/pull/1/changes/BASEbase-sha" target="_blank" rel="noopener noreferrer">src/example.ts:1</a> | P0 finding |'
+    );
   });
 
-  it("includes a link when commentId is set", () => {
+  it("links the file to the pull request changes page", () => {
     const body = renderSummaryComment({
       rows: [row("P0", "src/example.ts", { commentId: 42 })],
       owner: "owner",
       repo: "repo",
-      pullRequestNumber: 1
+      pullRequestNumber: 1,
+      baseSha: "base-sha"
     });
 
-    expect(body).toContain("[#42](https://github.com/owner/repo/pull/1#discussion_r42)");
     expect(body).toContain(
-      "[src/example.ts:1](https://github.com/owner/repo/pull/1#discussion_r42)"
+      '<a href="https://github.com/owner/repo/pull/1/changes/BASEbase-sha" target="_blank" rel="noopener noreferrer">src/example.ts:1</a>'
     );
+    expect(body).not.toContain("| Link |");
+    expect(body).not.toContain("discussion_r42");
   });
 
-  it("uses the canonical comment URL and shortens long titles", () => {
+  it("shortens long titles while linking the file to changes", () => {
     const body = renderSummaryComment({
       rows: [
         row("P1", ".github/workflows/vetter-action.yml", {
           title:
             "GitHub Actions step uses a mutable tag or branch reference. Tags and branch names can be silently repointed",
           line: 21,
-          commentId: 42,
-          commentUrl: "https://github.com/owner/repo/pull/1#discussion_r42"
+          commentId: 42
         })
       ],
       owner: "owner",
       repo: "repo",
-      pullRequestNumber: 1
+      pullRequestNumber: 1,
+      baseSha: "base-sha"
     });
 
     expect(body).toContain(
-      "[.github/workflows/vetter-action.yml:21](https://github.com/owner/repo/pull/1#discussion_r42)"
+      '<a href="https://github.com/owner/repo/pull/1/changes/BASEbase-sha" target="_blank" rel="noopener noreferrer">.github/workflows/vetter-action.yml:21</a>'
     );
     expect(body).toContain("GitHub Actions step uses a mutable tag or branch...");
     expect(body).not.toContain("Tags and branch names can be silently repointed");
@@ -85,9 +91,12 @@ describe("renderSummaryComment", () => {
       rows: [row("P0", "src/summary-only.ts", { line: null })],
       owner: "owner",
       repo: "repo",
-      pullRequestNumber: 1
+      pullRequestNumber: 1,
+      baseSha: "base-sha"
     });
 
-    expect(body).toContain("| P0 | 🔴 open | src/summary-only.ts |");
+    expect(body).toContain(
+      '| P0 | 🔴 open | <a href="https://github.com/owner/repo/pull/1/changes/BASEbase-sha" target="_blank" rel="noopener noreferrer">src/summary-only.ts</a> |'
+    );
   });
 });
