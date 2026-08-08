@@ -146,7 +146,7 @@ export async function syncReviewSummary(input: SyncReviewSummaryInput): Promise<
     owner: pullRequestRef.owner,
     repo: pullRequestRef.repo,
     pullRequestNumber: pullRequestRef.number,
-    baseSha: context.baseSha
+    headSha: context.headSha
   });
 
   if (signal?.aborted) {
@@ -319,7 +319,7 @@ export async function runReview(input: RunReviewInput): Promise<RunReviewResult>
     owner: pullRequestRef.owner,
     repo: pullRequestRef.repo,
     pullRequestNumber: pullRequestRef.number,
-    baseSha: context.baseSha
+    headSha: context.headSha
   });
   await gateway.createIssueComment({ ...pullRequestRef, body: summaryBody });
 

@@ -3,6 +3,8 @@
 This document describes how an AI agent should prepare and create a pull
 request for Vetter. PR descriptions should use the following fixed structure:
 
+PR titles and descriptions must always be written in English.
+
 - `Background`: explain the context and why the change is needed.
 - `Problem`: describe the current incorrect behavior, limitation, or user impact.
 - `Changes`: summarize the implementation, grouped by component or runtime when

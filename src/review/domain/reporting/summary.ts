@@ -23,7 +23,7 @@ export interface RenderSummaryInput {
   owner: string;
   repo: string;
   pullRequestNumber: number;
-  baseSha: string;
+  headSha: string;
 }
 
 function sortRows(rows: SummaryRow[]): SummaryRow[] {
@@ -42,8 +42,9 @@ function escapeCell(text: string): string {
   return text.replace(/\|/g, "\\|").replace(/\r?\n/g, " ");
 }
 
-function changesUrl(input: RenderSummaryInput): string {
-  return `https://github.com/${input.owner}/${input.repo}/pull/${String(input.pullRequestNumber)}/changes/BASE${input.baseSha}`;
+function changesUrl(row: SummaryRow, input: RenderSummaryInput): string {
+  const url = `https://github.com/${input.owner}/${input.repo}/pull/${String(input.pullRequestNumber)}/changes/BASE..${input.headSha}`;
+  return row.commentId === null ? url : `${url}#r${String(row.commentId)}`;
 }
 
 function locationCell(row: SummaryRow, input: RenderSummaryInput): string {
@@ -51,8 +52,8 @@ function locationCell(row: SummaryRow, input: RenderSummaryInput): string {
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
-  const url = changesUrl(input).replace(/&/g, "&amp;").replace(/"/g, "&quot;");
-  return `<a href="${url}" target="_blank" rel="noopener noreferrer">${fileCell}</a>`;
+  const url = changesUrl(row, input).replace(/&/g, "&amp;").replace(/"/g, "&quot;");
+  return `<a href="${url}">${fileCell}</a>`;
 }
 
 function renderTable(rows: SummaryRow[], input: RenderSummaryInput, compact: boolean): string {

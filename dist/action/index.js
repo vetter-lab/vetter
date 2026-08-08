@@ -67792,16 +67792,17 @@ function sortRows(rows) {
 function escapeCell(text) {
     return text.replace(/\|/g, "\\|").replace(/\r?\n/g, " ");
 }
-function changesUrl(input) {
-    return `https://github.com/${input.owner}/${input.repo}/pull/${String(input.pullRequestNumber)}/changes/BASE${input.baseSha}`;
+function changesUrl(row, input) {
+    const url = `https://github.com/${input.owner}/${input.repo}/pull/${String(input.pullRequestNumber)}/changes/BASE..${input.headSha}`;
+    return row.commentId === null ? url : `${url}#r${String(row.commentId)}`;
 }
 function locationCell(row, input) {
     const fileCell = escapeCell(row.line !== null ? `${row.path}:${row.line}` : row.path)
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;");
-    const url = changesUrl(input).replace(/&/g, "&amp;").replace(/"/g, "&quot;");
-    return `<a href="${url}" target="_blank" rel="noopener noreferrer">${fileCell}</a>`;
+    const url = changesUrl(row, input).replace(/&/g, "&amp;").replace(/"/g, "&quot;");
+    return `<a href="${url}">${fileCell}</a>`;
 }
 function renderTable(rows, input, compact) {
     if (rows.length === 0) {
@@ -68063,7 +68064,7 @@ async function syncReviewSummary(input) {
         owner: pullRequestRef.owner,
         repo: pullRequestRef.repo,
         pullRequestNumber: pullRequestRef.number,
-        baseSha: context.baseSha
+        headSha: context.headSha
     });
     if (signal?.aborted) {
         return { status: "aborted" };
@@ -68203,7 +68204,7 @@ async function runReview(input) {
         owner: pullRequestRef.owner,
         repo: pullRequestRef.repo,
         pullRequestNumber: pullRequestRef.number,
-        baseSha: context.baseSha
+        headSha: context.headSha
     });
     await gateway.createIssueComment({ ...pullRequestRef, body: summaryBody });
     const evaluation = evaluateCheckRun({ rows: plan.rows, severity: config.severity, failures });

@@ -23,7 +23,7 @@ describe("renderSummaryComment", () => {
       owner: "owner",
       repo: "repo",
       pullRequestNumber: 1,
-      baseSha: "base-sha"
+      headSha: "head-sha"
     });
 
     const positions = ["| P0 |", "| P1 |", "| P2 |", "| P3 |"].map((value) => body.indexOf(value));
@@ -39,11 +39,11 @@ describe("renderSummaryComment", () => {
       owner: "owner",
       repo: "repo",
       pullRequestNumber: 1,
-      baseSha: "base-sha"
+      headSha: "head-sha"
     });
 
     expect(body).toContain(
-      '| P0 | 🔴 open | <a href="https://github.com/owner/repo/pull/1/changes/BASEbase-sha" target="_blank" rel="noopener noreferrer">src/example.ts:1</a> | P0 finding |'
+      '| P0 | 🔴 open | <a href="https://github.com/owner/repo/pull/1/changes/BASE..head-sha">src/example.ts:1</a> | P0 finding |'
     );
   });
 
@@ -53,14 +53,14 @@ describe("renderSummaryComment", () => {
       owner: "owner",
       repo: "repo",
       pullRequestNumber: 1,
-      baseSha: "base-sha"
+      headSha: "head-sha"
     });
 
     expect(body).toContain(
-      '<a href="https://github.com/owner/repo/pull/1/changes/BASEbase-sha" target="_blank" rel="noopener noreferrer">src/example.ts:1</a>'
+      '<a href="https://github.com/owner/repo/pull/1/changes/BASE..head-sha#r42">src/example.ts:1</a>'
     );
     expect(body).not.toContain("| Link |");
-    expect(body).not.toContain("discussion_r42");
+    expect(body).not.toContain('target="_blank"');
   });
 
   it("shortens long titles while linking the file to changes", () => {
@@ -76,11 +76,11 @@ describe("renderSummaryComment", () => {
       owner: "owner",
       repo: "repo",
       pullRequestNumber: 1,
-      baseSha: "base-sha"
+      headSha: "head-sha"
     });
 
     expect(body).toContain(
-      '<a href="https://github.com/owner/repo/pull/1/changes/BASEbase-sha" target="_blank" rel="noopener noreferrer">.github/workflows/vetter-action.yml:21</a>'
+      '<a href="https://github.com/owner/repo/pull/1/changes/BASE..head-sha#r42">.github/workflows/vetter-action.yml:21</a>'
     );
     expect(body).toContain("GitHub Actions step uses a mutable tag or branch...");
     expect(body).not.toContain("Tags and branch names can be silently repointed");
@@ -92,11 +92,11 @@ describe("renderSummaryComment", () => {
       owner: "owner",
       repo: "repo",
       pullRequestNumber: 1,
-      baseSha: "base-sha"
+      headSha: "head-sha"
     });
 
     expect(body).toContain(
-      '| P0 | 🔴 open | <a href="https://github.com/owner/repo/pull/1/changes/BASEbase-sha" target="_blank" rel="noopener noreferrer">src/summary-only.ts</a> |'
+      '| P0 | 🔴 open | <a href="https://github.com/owner/repo/pull/1/changes/BASE..head-sha">src/summary-only.ts</a> |'
     );
   });
 });
