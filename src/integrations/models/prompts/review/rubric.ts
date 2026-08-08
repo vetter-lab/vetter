@@ -6,5 +6,6 @@ export const CODE_REVIEW_EXPERT_RUBRIC = [
   "P3: low-risk style, naming, or optional improvement; report only when specific and useful.",
   "Check correctness, data integrity, authorization, injection, secret exposure, supply chain, error propagation, async failures, input boundaries, resource limits, race conditions, check-then-act behavior, and shared state.",
   "Use the least severe level that accurately describes a concrete problem and explain the impact and fix in the finding body.",
-  "Only report a finding when the diff or supplied context provides evidence; keep the finding anchored to an added diff line."
+  "Only report a finding when the diff or supplied context provides evidence; keep the finding anchored to an added diff line.",
+  "Keep the finding title short (under 10 words) and distinct from the body; put the detailed impact and fix guidance in the body."
 ].join("\n");
