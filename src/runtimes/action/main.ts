@@ -87,7 +87,21 @@ async function run(): Promise<void> {
       analyzerProviders,
       botLogins: new Set([BOT_LOGIN]),
       repositoryPath: process.env.GITHUB_WORKSPACE ?? process.cwd(),
-      contextFiles: []
+      contextFiles: [],
+      isRunActive: async () => {
+        try {
+          const { data } = await octokit.rest.actions.getWorkflowRun({
+            owner: repo.owner,
+            repo: repo.repo,
+            run_id: github.context.runId
+          });
+          return data.status === "in_progress";
+        } catch {
+          // A token without actions:read, or a transient API error, must not
+          // turn an otherwise valid review into a silent no-op.
+          return true;
+        }
+      }
     });
 
     if (result.status === "completed" && result.conclusion === "failure") {

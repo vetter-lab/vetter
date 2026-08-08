@@ -62,6 +62,8 @@ export interface ReconciliationPlan {
 export interface ReconcileInput {
   current: CurrentFindingInput[];
   existing: ExistingFinding[];
+  /** Summary rows from the previous run, used when GitHub omits a thread from the snapshot. */
+  persistedSummaryRows?: SummaryRow[];
   /** Provider scope keys (`${source}:${path}`) that completed a full, successful pass this run. */
   completeScopes: Set<string>;
   botLogins: Set<string>;
@@ -168,16 +170,19 @@ function rowFromExisting(existing: ExistingFinding, state: FindingState): Summar
  * `GitHubGateway`.
  */
 export function reconcileFindings(input: ReconcileInput): ReconciliationPlan {
-  const { current, existing, completeScopes, botLogins } = input;
+  const { current, existing, persistedSummaryRows = [], completeScopes, botLogins } = input;
 
   const createInline: CreateInlinePlan[] = [];
   const updateInline: UpdateInlinePlan[] = [];
   const resolveThreads: string[] = [];
   const reopenThreads: string[] = [];
   const summaryOnly: Finding[] = [];
-  const rows: SummaryRow[] = [];
+  const rowsByFingerprint = new Map(persistedSummaryRows.map((row) => [row.fingerprint, row]));
 
   const matchedFingerprints = new Set<string>();
+  const setRow = (row: SummaryRow): void => {
+    rowsByFingerprint.set(row.fingerprint, row);
+  };
 
   for (const { finding, anchor } of current) {
     const match = matchExistingFinding(finding, existing);
@@ -191,24 +196,40 @@ export function reconcileFindings(input: ReconcileInput): ReconciliationPlan {
             reopenThreads.push(match.threadId);
           }
           updateInline.push({ commentId: match.commentId, finding: toRenderable(finding), botResolved: false });
-          rows.push(rowFromFinding(finding, "open", match.commentId, match.commentUrl));
+          setRow(rowFromFinding(finding, "open", match.commentId, match.commentUrl));
         } else {
-          rows.push(rowFromFinding(finding, "suppressed", match.commentId, match.commentUrl));
+          setRow(rowFromFinding(finding, "suppressed", match.commentId, match.commentUrl));
         }
         continue;
       }
 
       updateInline.push({ commentId: match.commentId, finding: toRenderable(finding), botResolved: false });
-      rows.push(rowFromFinding(finding, "open", match.commentId, match.commentUrl));
+      setRow(rowFromFinding(finding, "open", match.commentId, match.commentUrl));
+      continue;
+    }
+
+    const persisted = rowsByFingerprint.get(finding.fingerprint);
+    if (persisted) {
+      if (persisted.state === "fixed") {
+        if (anchor) {
+          createInline.push({ finding, anchor });
+          setRow(rowFromFinding(finding, "open", null));
+        } else {
+          summaryOnly.push(finding);
+          setRow(rowFromFinding(finding, "open", null));
+        }
+      } else {
+        setRow(rowFromFinding(finding, persisted.state, persisted.commentId, persisted.commentUrl));
+      }
       continue;
     }
 
     if (anchor) {
       createInline.push({ finding, anchor });
-      rows.push(rowFromFinding(finding, "open", null));
+      setRow(rowFromFinding(finding, "open", null));
     } else {
       summaryOnly.push(finding);
-      rows.push(rowFromFinding(finding, "open", null));
+      setRow(rowFromFinding(finding, "open", null));
     }
   }
 
@@ -228,15 +249,22 @@ export function reconcileFindings(input: ReconcileInput): ReconciliationPlan {
           finding: existingToRenderable(existingFinding),
           botResolved: true
         });
-        rows.push(rowFromExisting(existingFinding, "fixed"));
+        setRow(rowFromExisting(existingFinding, "fixed"));
       } else {
-        rows.push(rowFromExisting(existingFinding, existingFinding.state));
+        setRow(rowFromExisting(existingFinding, existingFinding.state));
       }
       continue;
     }
 
-    rows.push(rowFromExisting(existingFinding, existingFinding.state));
+    setRow(rowFromExisting(existingFinding, existingFinding.state));
   }
 
-  return { createInline, updateInline, resolveThreads, reopenThreads, summaryOnly, rows };
+  return {
+    createInline,
+    updateInline,
+    resolveThreads,
+    reopenThreads,
+    summaryOnly,
+    rows: [...rowsByFingerprint.values()]
+  };
 }

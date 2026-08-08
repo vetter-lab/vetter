@@ -18,6 +18,7 @@ on:
   push:
 
 permissions:
+  actions: read
   contents: read
   pull-requests: write
   checks: write
@@ -48,6 +49,7 @@ jobs:
 The workflow's `permissions` block must grant:
 
 - `contents: read` — to check out the repository for static analyzers.
+- `actions: read` — to let cancelled duplicate workflow runs stop before they write comments.
 - `pull-requests: write` — to create/update inline review comments, resolve
   and reopen review threads, and post the summary comment.
 - `checks: write` — to publish the `vetter / code-review` Check Run.

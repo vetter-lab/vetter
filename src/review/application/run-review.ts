@@ -37,6 +37,8 @@ export interface RunReviewInput {
    * run never writes stale comments.
    */
   signal?: AbortSignal;
+  /** Action-runtime guard for cancelled workflow runs; omitted by the App runtime. */
+  isRunActive?: () => Promise<boolean>;
 }
 
 export interface SyncReviewSummaryInput {
@@ -207,7 +209,8 @@ export async function runReview(input: RunReviewInput): Promise<RunReviewResult>
     botLogins,
     repositoryPath,
     contextFiles,
-    signal
+    signal,
+    isRunActive
   } = input;
   const pullRequestRef = toPullRequestRef(context);
 
@@ -282,7 +285,7 @@ export async function runReview(input: RunReviewInput): Promise<RunReviewResult>
 
   const currentFindings = deduplicateFindings(drafts.map((draft) => normalizeFinding(draft)));
 
-  if (signal?.aborted) {
+  if (signal?.aborted || (isRunActive && !(await isRunActive()))) {
     return { status: "aborted" };
   }
 
@@ -291,12 +294,16 @@ export async function runReview(input: RunReviewInput): Promise<RunReviewResult>
     return { status: "stale" };
   }
 
-  if (signal?.aborted) {
+  if (signal?.aborted || (isRunActive && !(await isRunActive()))) {
     return { status: "aborted" };
   }
 
   const reviewState = await gateway.listReviewState({ ...pullRequestRef, botLogins });
   const existingFindings = toExistingFindings(reviewState, botLogins);
+  const existingSummary = await gateway.findSummaryComment({ ...pullRequestRef, botLogins });
+  const persistedSummaryRows = existingSummary
+    ? parseSummaryRowMarkers(existingSummary.body).map(toPersistedSummaryRow)
+    : [];
 
   const currentInputs: CurrentFindingInput[] = currentFindings.map((finding) => ({
     finding,
@@ -306,24 +313,20 @@ export async function runReview(input: RunReviewInput): Promise<RunReviewResult>
   const plan = reconcileFindings({
     current: currentInputs,
     existing: existingFindings,
+    persistedSummaryRows,
     completeScopes,
     botLogins
   });
 
-  const existingSummary = await gateway.findSummaryComment({ ...pullRequestRef, botLogins });
-  if (existingSummary) {
-    await gateway.deleteIssueComment({
-      owner: pullRequestRef.owner,
-      repo: pullRequestRef.repo,
-      commentId: existingSummary.commentId
-    });
-  }
-
-  if (signal?.aborted) {
+  if (signal?.aborted || (isRunActive && !(await isRunActive()))) {
     return { status: "aborted" };
   }
 
   await applyReconciliationPlan({ gateway, pullRequestRef, headSha: context.headSha, plan });
+
+  if (signal?.aborted || (isRunActive && !(await isRunActive()))) {
+    return { status: "aborted" };
+  }
 
   const summaryBody = renderSummaryComment({
     rows: plan.rows,
@@ -333,7 +336,16 @@ export async function runReview(input: RunReviewInput): Promise<RunReviewResult>
     headSha: context.headSha,
     language: config.review.language
   });
-  await gateway.createIssueComment({ ...pullRequestRef, body: summaryBody });
+  if (existingSummary) {
+    await gateway.updateIssueComment({
+      owner: pullRequestRef.owner,
+      repo: pullRequestRef.repo,
+      commentId: existingSummary.commentId,
+      body: summaryBody
+    });
+  } else {
+    await gateway.createIssueComment({ ...pullRequestRef, body: summaryBody });
+  }
 
   const evaluation = evaluateCheckRun({
     rows: plan.rows,

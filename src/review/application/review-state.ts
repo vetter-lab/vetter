@@ -9,7 +9,7 @@ import type { ExistingFinding, FindingState } from "../domain/types.js";
  * the hidden marker and the surrounding thread state.
  */
 export function toExistingFindings(snapshot: ReviewStateSnapshot, botLogins: Set<string>): ExistingFinding[] {
-  const findings: ExistingFinding[] = [];
+  const findingsByFingerprint = new Map<string, ExistingFinding>();
 
   for (const thread of snapshot.reviewThreads) {
     for (const comment of thread.comments) {
@@ -22,7 +22,7 @@ export function toExistingFindings(snapshot: ReviewStateSnapshot, botLogins: Set
       const resolvedByBot = wasResolvedByBot({ resolvedByLogin: thread.resolvedByLogin, lastAction }, botLogins);
       const state: FindingState = !thread.isResolved ? "open" : resolvedByBot ? "fixed" : "suppressed";
 
-      findings.push({
+      const finding: ExistingFinding = {
         fingerprint: marker.fingerprint,
         ruleId: marker.ruleId,
         source: marker.source,
@@ -39,9 +39,33 @@ export function toExistingFindings(snapshot: ReviewStateSnapshot, botLogins: Set
         resolvedByLogin: thread.resolvedByLogin,
         lastAction,
         state
-      });
+      };
+
+      const previous = findingsByFingerprint.get(finding.fingerprint);
+      if (!previous || shouldPrefer(finding, previous)) {
+        findingsByFingerprint.set(finding.fingerprint, finding);
+      }
     }
   }
 
-  return findings;
+  return [...findingsByFingerprint.values()];
+}
+
+/**
+ * A duplicate fingerprint can be left behind by overlapping workflow runs.
+ * Prefer a human suppression over any reopenable state, then prefer an open
+ * thread over a bot-fixed duplicate so a regression can be handled normally.
+ */
+function shouldPrefer(candidate: ExistingFinding, current: ExistingFinding): boolean {
+  const rank = (finding: ExistingFinding): number => {
+    if (finding.state === "suppressed") {
+      return 0;
+    }
+    if (finding.state === "open") {
+      return 1;
+    }
+    return 2;
+  };
+
+  return rank(candidate) < rank(current);
 }

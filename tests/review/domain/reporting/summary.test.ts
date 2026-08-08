@@ -63,6 +63,18 @@ describe("renderSummaryComment", () => {
     expect(body).not.toContain('target="_blank"');
   });
 
+  it("persists markers for inline rows as well as summary-only rows", () => {
+    const body = renderSummaryComment({
+      rows: [row("P1", "src/example.ts", { fingerprint: "inline-fingerprint", commentId: 42 })],
+      owner: "owner",
+      repo: "repo",
+      pullRequestNumber: 1,
+      headSha: "head-sha"
+    });
+
+    expect(body).toContain('vetter:summary-row:v1 fingerprint="inline-fingerprint"');
+  });
+
   it("shortens long titles while linking the file to changes", () => {
     const body = renderSummaryComment({
       rows: [
@@ -83,7 +95,9 @@ describe("renderSummaryComment", () => {
       '<a href="https://github.com/owner/repo/pull/1/changes/BASE..head-sha#r42">.github/workflows/vetter-action.yml:21</a>'
     );
     expect(body).toContain("GitHub Actions step uses a mutable tag or branch...");
-    expect(body).not.toContain("Tags and branch names can be silently repointed");
+    expect(body.split("\n").find((line) => line.startsWith("| P1 |"))).not.toContain(
+      "Tags and branch names can be silently repointed"
+    );
   });
 
   it("shows path without line when line is null", () => {

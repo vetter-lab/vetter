@@ -78,9 +78,8 @@ function renderTable(rows: SummaryRow[], input: RenderSummaryInput, compact: boo
   return [header, ...lines].join("\n");
 }
 
-function renderSummaryOnlyMarkers(rows: SummaryRow[]): string[] {
+function renderSummaryRowMarkers(rows: SummaryRow[]): string[] {
   return rows
-    .filter((row) => row.commentId === null)
     .map((row) =>
       buildSummaryRowMarker({
         fingerprint: row.fingerprint,
@@ -102,11 +101,11 @@ function renderSummaryOnlyMarkers(rows: SummaryRow[]): string[] {
 export function renderSummaryComment(input: RenderSummaryInput): string {
   const labels = getReviewOutputLabels(input.language);
   const sorted = sortRows(input.rows);
-  const persistedSummaryOnly = renderSummaryOnlyMarkers(sorted);
+  const persistedSummaryRows = renderSummaryRowMarkers(sorted);
 
   const full = [
     SUMMARY_MARKER,
-    ...persistedSummaryOnly,
+    ...persistedSummaryRows,
     "",
     `## ${labels.summaryTitle}`,
     "",
@@ -118,7 +117,7 @@ export function renderSummaryComment(input: RenderSummaryInput): string {
 
   return [
     SUMMARY_MARKER,
-    ...persistedSummaryOnly,
+    ...persistedSummaryRows,
     "",
     `## ${labels.summaryTitle}`,
     "",
