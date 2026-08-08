@@ -102,7 +102,7 @@ describe("syncReviewSummary", () => {
         baseSha: "base-sha",
         headSha: "head-sha",
         eventId: "comment-event",
-        source: "pull_request_review_comment"
+        source: "pull_request_review_thread"
       },
       config: loadConfig({ runtime: "action" }),
       botLogins: new Set(["vetter[bot]"])

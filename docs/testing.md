@@ -108,22 +108,18 @@ source of truth either way.
   permanently. Vetter never reopens a thread it didn't resolve itself,
   even if the same finding is detected again in a later run — as long as
   the fingerprint still matches, it's treated as intentionally dismissed.
-  Resolving or reopening a thread by itself does not emit any webhook
-  GitHub Actions can subscribe to, so this state isn't picked up
-  immediately. It's reconciled on the next event that actually runs a
-  review — a push/`synchronize`, or someone replying on the thread, which
-  fires `pull_request_review_comment` and triggers a lightweight sync
-  (`syncReviewSummary`) that refreshes the summary and Check Run from the
-  current GitHub state without rerunning providers.
+  When the App is subscribed to `pull_request_review_thread`, the summary
+  and Check Run are refreshed immediately from the webhook without
+  rerunning providers. The Action runtime does not support this trigger,
+  so resolving or reopening a thread in Action mode is only detected on
+  the next `synchronize` or `push` event.
 - **A finding that returns after Vetter resolved it as fixed, then
   regresses**: Vetter detects that the thread it previously resolved was
   bot-resolved (via `resolvedBy` or the marker's `bot-resolved` field),
   reopens the thread, and updates the comment — this is not treated as a
   suppression.
-- **A developer reopens a review thread**: reflected the same way — on the
-  next review-triggering event (a new commit, or a reply on the thread via
-  `pull_request_review_comment`), the row goes back to `open` and the
-  Check Run is recalculated.
+- **A developer reopens a review thread**: the same lightweight sync changes
+  the row back to `open` and recalculates the Check Run.
 - **A failed or timed-out analyzer**: its findings are dropped for this
   run, but — critically — none of its previously reported findings are
   closed, because `reconcileFindings` only marks a finding `fixed` when

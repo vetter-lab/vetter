@@ -68033,7 +68033,7 @@ async function syncReviewSummary(input) {
 async function runReview(input) {
     const { gateway, context, config, modelProvider, analyzerProviders, botLogins, repositoryPath, contextFiles, signal } = input;
     const pullRequestRef = toPullRequestRef(context);
-    if (context.source === "pull_request_review_comment") {
+    if (context.source === "pull_request_review_thread") {
         return syncReviewSummary({
             gateway,
             context,
@@ -68180,7 +68180,7 @@ function matchesAnyBranchPattern(branch, patterns) {
 ;// CONCATENATED MODULE: ./src/runtimes/app/events.ts
 
 const SUPPORTED_PULL_REQUEST_ACTIONS = new Set(["opened", "reopened", "synchronize"]);
-const SUPPORTED_REVIEW_COMMENT_ACTIONS = new Set(["created"]);
+const SUPPORTED_REVIEW_THREAD_ACTIONS = new Set(["resolved", "unresolved"]);
 function toReviewContext(input) {
     return {
         repository: { owner: input.owner, name: input.name, fullName: input.fullName },
@@ -68191,8 +68191,8 @@ function toReviewContext(input) {
         source: input.source
     };
 }
-function normalizePullRequestReviewCommentEvent(payload, deliveryId) {
-    if (!SUPPORTED_REVIEW_COMMENT_ACTIONS.has(payload.action)) {
+function normalizePullRequestReviewThreadEvent(payload, deliveryId) {
+    if (!SUPPORTED_REVIEW_THREAD_ACTIONS.has(payload.action)) {
         return [];
     }
     return [
@@ -68204,7 +68204,7 @@ function normalizePullRequestReviewCommentEvent(payload, deliveryId) {
             baseSha: payload.pull_request.base.sha,
             headSha: payload.pull_request.head.sha,
             eventId: deliveryId,
-            source: "pull_request_review_comment"
+            source: "pull_request_review_thread"
         })
     ];
 }
@@ -68256,18 +68256,18 @@ async function normalizePushEvent(payload, deliveryId, gateway, branchPatterns) 
 /**
  * Normalizes a verified GitHub webhook delivery into zero or more
  * `ReviewContext`s. A push event resolves to the open PRs on its branch
- * (one context per PR) and produces none when no open PR matches, so the
- * caller never runs a review for a push with no PR (design doc section 4).
- * A new review comment produces a summary-only context (the comment itself
- * carries no resolved state; the current thread state is re-read from
- * GitHub when the context is processed); any other event produces no work.
+ * (one context per PR) and produces none when no open PR matches, so
+ * the caller never runs a review for a push with no PR (design doc
+ * section 4). Resolved/unresolved review-thread events produce a
+ * summary-only context; the current thread state is re-read from GitHub
+ * when the context is processed. Any other event produces no work.
  */
 async function normalizeWebhookEvent(input) {
     if (input.eventName === "pull_request") {
         return normalizePullRequestEvent(input.payload, input.deliveryId);
     }
-    if (input.eventName === "pull_request_review_comment") {
-        return normalizePullRequestReviewCommentEvent(input.payload, input.deliveryId);
+    if (input.eventName === "pull_request_review_thread") {
+        return normalizePullRequestReviewThreadEvent(input.payload, input.deliveryId);
     }
     if (input.eventName === "push") {
         return normalizePushEvent(input.payload, input.deliveryId, input.gateway, input.branchPatterns);
@@ -68307,7 +68307,7 @@ async function normalizeActionEvent(input) {
 
 const BOT_LOGIN = "github-actions[bot]";
 function resolveConfigRef(eventName, payload, sha) {
-    if (eventName === "pull_request" || eventName === "pull_request_review_comment") {
+    if (eventName === "pull_request") {
         const pullRequest = payload.pull_request;
         return pullRequest?.head?.sha ?? sha;
     }
@@ -68327,11 +68327,6 @@ async function run() {
     const gateway = createOctokitGateway(octokit);
     const { eventName, payload, repo, sha } = github_context;
     const payloadRecord = payload;
-    const sender = payloadRecord.sender;
-    if (eventName === "pull_request_review_comment" && sender?.login === BOT_LOGIN) {
-        info("ignoring bot-authored review comment event");
-        return;
-    }
     const configRef = resolveConfigRef(eventName, payloadRecord, sha);
     const repositoryYaml = await gateway.getFileContent({
         owner: repo.owner,

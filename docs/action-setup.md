@@ -15,8 +15,6 @@ name: Vetter review
 on:
   pull_request:
     types: [opened, reopened, synchronize]
-  pull_request_review_comment:
-    types: [created]
   push:
 
 permissions:
@@ -84,6 +82,13 @@ Keep the key branch-based for both events. Do not use
 `${{ github.event.pull_request.number || github.ref }}`: a pull request event
 then keys by PR number while a push event keys by branch ref, allowing both
 reviews for the same commit to run concurrently.
+
+The Action runtime does not subscribe to `pull_request_review_thread`
+events because GitHub Actions does not support that trigger. Resolving or
+reopening a review thread is only detected on the next `synchronize` or
+`push` event that triggers a review. The App runtime handles
+`pull_request_review_thread` events separately and refreshes the summary
+without rerunning providers.
 
 ## 5. Analyzer prerequisites
 

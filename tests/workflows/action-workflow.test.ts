@@ -15,10 +15,11 @@ test("shares one concurrency group between push and pull request runs", () => {
   );
 });
 
-test("refreshes the summary when someone replies on a review comment thread", () => {
+test("does not include pull_request_review_comment or pull_request_review_thread triggers", () => {
   const workflow = YAML.parse(readFileSync(workflowPath, "utf8")) as {
-    on?: { pull_request_review_comment?: { types?: string[] } };
+    on?: Record<string, unknown>;
   };
 
-  expect(workflow.on?.pull_request_review_comment?.types).toEqual(["created"]);
+  expect(workflow.on?.pull_request_review_comment).toBeUndefined();
+  expect(workflow.on?.pull_request_review_thread).toBeUndefined();
 });
