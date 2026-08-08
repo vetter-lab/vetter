@@ -41,14 +41,21 @@ export function deduplicateFindings(findings: Finding[]): Finding[] {
  * match is rejected. Exact duplicate persisted comments are the same logical
  * finding, so the first one is used as the canonical comment.
  */
-export function matchExistingFinding(finding: Finding, existing: ExistingFinding[]): ExistingFinding | null {
+export function matchExistingFinding(
+  finding: Finding,
+  existing: ExistingFinding[],
+  fallbackFingerprints?: Set<string>
+): ExistingFinding | null {
   const exactMatch = existing.find((candidate) => candidate.fingerprint === finding.fingerprint);
   if (exactMatch) {
     return exactMatch;
   }
 
   const fallbackMatches = existing.filter(
-    (candidate) => candidate.ruleId === finding.ruleId && candidate.path === finding.path
+    (candidate) =>
+      candidate.ruleId === finding.ruleId &&
+      candidate.path === finding.path &&
+      (fallbackFingerprints === undefined || fallbackFingerprints.has(candidate.fingerprint))
   );
   if (fallbackMatches.length === 1) {
     return fallbackMatches[0] ?? null;

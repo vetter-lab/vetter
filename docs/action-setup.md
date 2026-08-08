@@ -1,7 +1,9 @@
 # GitHub Action setup
 
 Vetter's Action runtime reviews the pull request tied to the current
-workflow run, using the same review core as the App runtime. A repository
+workflow run, using the same review core as the App runtime. Each synchronize
+or push run reviews only the `before...after` commit range; the initial pull
+request review uses the PR base. A repository
 can run entirely on the Action with no GitHub App Webhook configured at all.
 
 ## 1. Add the workflow

@@ -122,6 +122,13 @@ describe("matchExistingFinding", () => {
     expect(matchExistingFinding(finding, existing)).toBe(existing[0]);
   });
 
+  it("does not fall back to an existing finding outside an incremental diff", () => {
+    const finding = normalizeFinding(makeDraft());
+    const existing = [makeExisting({ fingerprint: "stale-a", commentId: 1 })];
+
+    expect(matchExistingFinding(finding, existing, new Set())).toBeNull();
+  });
+
   it("uses one exact match when persisted state contains duplicate comments", () => {
     const finding = normalizeFinding(makeDraft());
     const existing = [

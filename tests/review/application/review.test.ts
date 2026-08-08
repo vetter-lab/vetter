@@ -9,6 +9,8 @@ test("passes file headers and paths to the model provider", async () => {
   const patch = ["@@ -20,2 +20,3 @@", " old", "+new", " end"].join("\n");
   let receivedDiff = "";
   let receivedLanguage = "";
+  let receivedDiffBase = "";
+  let receivedDiffHead = "";
   const modelProvider: ModelProvider = {
     async review(input) {
       receivedDiff = input.diff;
@@ -30,7 +32,9 @@ test("passes file headers and paths to the model provider", async () => {
     async findOpenPullRequestsForHead() {
       return [];
     },
-    async listChangedFiles() {
+    async listChangedFiles(input) {
+      receivedDiffBase = input.baseSha;
+      receivedDiffHead = input.headSha;
       return [{ path: ".github/workflows/vetter-action.yml", status: "modified", patch }];
     },
     async getFileContent() {
@@ -63,6 +67,7 @@ test("passes file headers and paths to the model provider", async () => {
       pullRequestNumber: 1,
       baseSha: "base-sha",
       headSha: "head-sha",
+      reviewBaseSha: "previous-sha",
       eventId: "event-1",
       source: "pull_request"
     },
@@ -86,6 +91,8 @@ test("passes file headers and paths to the model provider", async () => {
     ].join("\n")
   );
   expect(receivedLanguage).toBe("zh-CN");
+  expect(receivedDiffBase).toBe("previous-sha");
+  expect(receivedDiffHead).toBe("head-sha");
 });
 
 test("does not create duplicate inline comments for duplicate findings", async () => {

@@ -54055,12 +54055,13 @@ function createOctokitGateway(octokit) {
             return data.map((pr) => toPullRequestSnapshot(pr));
         },
         async listChangedFiles(input) {
-            const files = await octokit.paginate(octokit.rest.pulls.listFiles, {
+            const files = await octokit.paginate(octokit.rest.repos.compareCommits, {
                 owner: input.owner,
                 repo: input.repo,
-                pull_number: input.number,
+                base: input.baseSha,
+                head: input.headSha,
                 per_page: 100
-            });
+            }, (response) => response.data.files ?? []);
             return files.map((file) => ({
                 path: file.filename,
                 status: mapFileStatus(file.status),
@@ -67652,12 +67653,14 @@ function deduplicateFindings(findings) {
  * match is rejected. Exact duplicate persisted comments are the same logical
  * finding, so the first one is used as the canonical comment.
  */
-function matchExistingFinding(finding, existing) {
+function matchExistingFinding(finding, existing, fallbackFingerprints) {
     const exactMatch = existing.find((candidate) => candidate.fingerprint === finding.fingerprint);
     if (exactMatch) {
         return exactMatch;
     }
-    const fallbackMatches = existing.filter((candidate) => candidate.ruleId === finding.ruleId && candidate.path === finding.path);
+    const fallbackMatches = existing.filter((candidate) => candidate.ruleId === finding.ruleId &&
+        candidate.path === finding.path &&
+        (fallbackFingerprints === undefined || fallbackFingerprints.has(candidate.fingerprint)));
     if (fallbackMatches.length === 1) {
         return fallbackMatches[0] ?? null;
     }
@@ -67813,15 +67816,15 @@ function rowFromExisting(existing, state) {
  * - A current finding matching a developer-resolved thread stays suppressed
  *   and is never reopened.
  * - An existing finding missing from the current run is marked `fixed` only
- *   when its provider/path scope fully completed this run; otherwise it is
- *   left untouched so a partial analysis can never close an unverified
- *   finding.
+ *   when its provider/path scope fully completed this run and its location was
+ *   included in the incremental diff; otherwise it is left untouched so a
+ *   commit-level review cannot close an unreviewed finding.
  *
  * Performs no I/O; the caller applies the returned plan through a
  * `GitHubGateway`.
  */
 function reconcileFindings(input) {
-    const { current, existing, persistedSummaryRows = [], completeScopes, botLogins } = input;
+    const { current, existing, persistedSummaryRows = [], completeScopes, reviewedExistingFingerprints, botLogins } = input;
     const createInline = [];
     const updateInline = [];
     const resolveThreads = [];
@@ -67833,7 +67836,7 @@ function reconcileFindings(input) {
         rowsByFingerprint.set(row.fingerprint, row);
     };
     for (const { finding, anchor } of current) {
-        const match = matchExistingFinding(finding, existing);
+        const match = matchExistingFinding(finding, existing, reviewedExistingFingerprints);
         if (match) {
             matchedFingerprints.add(match.fingerprint);
             if (match.isResolved) {
@@ -67885,7 +67888,8 @@ function reconcileFindings(input) {
         }
         if (!existingFinding.isResolved) {
             const scope = providerScope(existingFinding.source, existingFinding.path);
-            if (completeScopes.has(scope)) {
+            const wasReviewed = reviewedExistingFingerprints === undefined || reviewedExistingFingerprints.has(existingFinding.fingerprint);
+            if (completeScopes.has(scope) && wasReviewed) {
                 if (existingFinding.threadId) {
                     resolveThreads.push(existingFinding.threadId);
                 }
@@ -68323,7 +68327,11 @@ async function runReview(input) {
             ...(signal ? { signal } : {})
         });
     }
-    const changedFileEntries = await gateway.listChangedFiles(pullRequestRef);
+    const changedFileEntries = await gateway.listChangedFiles({
+        ...pullRequestRef,
+        baseSha: context.reviewBaseSha ?? context.baseSha,
+        headSha: context.headSha
+    });
     const changedPaths = changedFileEntries.map((file) => file.path);
     const reviewPatches = changedFileEntries.map(toSyntheticPatch).filter((patch) => patch.length > 0);
     const parsedDiff = parseChangedFiles(reviewPatches);
@@ -68389,6 +68397,19 @@ async function runReview(input) {
     }
     const reviewState = await gateway.listReviewState({ ...pullRequestRef, botLogins });
     const existingFindings = toExistingFindings(reviewState, botLogins);
+    const reviewedExistingFingerprints = new Set(existingFindings
+        .filter((existing) => {
+        const changedFile = parsedDiff.find((file) => file.path === existing.path);
+        if (!changedFile) {
+            return false;
+        }
+        if (changedFile.status === "deleted") {
+            return true;
+        }
+        return existing.line !== null &&
+            (changedFile.addedLines.includes(existing.line) || changedFile.removedLines.includes(existing.line));
+    })
+        .map((existing) => existing.fingerprint));
     const existingSummary = await gateway.findSummaryComment({ ...pullRequestRef, botLogins });
     const persistedSummaryRows = existingSummary
         ? parseSummaryRowMarkers(existingSummary.body).map(toPersistedSummaryRow)
@@ -68402,6 +68423,7 @@ async function runReview(input) {
         existing: existingFindings,
         persistedSummaryRows,
         completeScopes,
+        reviewedExistingFingerprints,
         botLogins
     });
     if (signal?.aborted || (isRunActive && !(await isRunActive()))) {
@@ -68490,6 +68512,7 @@ function toReviewContext(input) {
         pullRequestNumber: input.pullRequestNumber,
         baseSha: input.baseSha,
         headSha: input.headSha,
+        ...(input.reviewBaseSha ? { reviewBaseSha: input.reviewBaseSha } : {}),
         eventId: input.eventId,
         source: input.source
     };
@@ -68523,6 +68546,7 @@ function normalizePullRequestEvent(payload, deliveryId) {
             pullRequestNumber: payload.number,
             baseSha: payload.pull_request.base.sha,
             headSha: payload.pull_request.head.sha,
+            ...(payload.action === "synchronize" ? { reviewBaseSha: payload.before } : {}),
             eventId: deliveryId,
             source: "pull_request"
         })
@@ -68551,7 +68575,8 @@ async function normalizePushEvent(payload, deliveryId, gateway, branchPatterns) 
         fullName: payload.repository.full_name,
         pullRequestNumber: pullRequest.number,
         baseSha: pullRequest.baseSha,
-        headSha: pullRequest.headSha,
+        headSha: payload.after,
+        reviewBaseSha: payload.before === "0".repeat(40) ? pullRequest.baseSha : payload.before,
         eventId: `${deliveryId}:${String(pullRequest.number)}`,
         source: "push"
     }));

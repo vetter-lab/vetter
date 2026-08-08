@@ -32,6 +32,7 @@ function toReviewContext(input: {
   pullRequestNumber: number;
   baseSha: string;
   headSha: string;
+  reviewBaseSha?: string;
   eventId: string;
   source: "pull_request" | "pull_request_review_thread" | "push";
 }): ReviewContext {
@@ -40,6 +41,7 @@ function toReviewContext(input: {
     pullRequestNumber: input.pullRequestNumber,
     baseSha: input.baseSha,
     headSha: input.headSha,
+    ...(input.reviewBaseSha ? { reviewBaseSha: input.reviewBaseSha } : {}),
     eventId: input.eventId,
     source: input.source
   };
@@ -80,6 +82,7 @@ function normalizePullRequestEvent(payload: PullRequestEventPayload, deliveryId:
       pullRequestNumber: payload.number,
       baseSha: payload.pull_request.base.sha,
       headSha: payload.pull_request.head.sha,
+      ...(payload.action === "synchronize" ? { reviewBaseSha: payload.before } : {}),
       eventId: deliveryId,
       source: "pull_request"
     })
@@ -119,7 +122,8 @@ async function normalizePushEvent(
       fullName: payload.repository.full_name,
       pullRequestNumber: pullRequest.number,
       baseSha: pullRequest.baseSha,
-      headSha: pullRequest.headSha,
+      headSha: payload.after,
+      reviewBaseSha: payload.before === "0".repeat(40) ? pullRequest.baseSha : payload.before,
       eventId: `${deliveryId}:${String(pullRequest.number)}`,
       source: "push"
     })

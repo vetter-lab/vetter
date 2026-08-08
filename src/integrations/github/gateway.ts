@@ -28,7 +28,7 @@ export interface GitHubGateway {
     branch: string;
   }): Promise<PullRequestSnapshot[]>;
 
-  listChangedFiles(input: PullRequestRef): Promise<ChangedFileEntry[]>;
+  listChangedFiles(input: PullRequestRef & { baseSha: string; headSha: string }): Promise<ChangedFileEntry[]>;
 
   /**
    * Reads a file's raw text content at `ref`, or null when the path does
