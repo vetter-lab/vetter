@@ -324,10 +324,16 @@ export async function runReview(input: RunReviewInput): Promise<RunReviewResult>
     ? parseSummaryRowMarkers(existingSummary.body).map(toPersistedSummaryRow)
     : [];
 
-  const currentInputs: CurrentFindingInput[] = currentFindings.map((finding) => ({
-    finding,
-    anchor: findReviewAnchor(parsedDiff, finding.path, finding.line)
-  }));
+  const currentInputs: CurrentFindingInput[] = currentFindings.map((finding) => {
+    const anchor = findReviewAnchor(parsedDiff, finding.path, finding.line, {
+      ...(finding.source === "llm" ? { codeAnchor: finding.codeAnchor } : {}),
+      requireCodeAnchor: finding.source === "llm"
+    });
+    return {
+      finding: anchor && anchor.line !== finding.line ? { ...finding, line: anchor.line } : finding,
+      anchor
+    };
+  });
 
   const plan = reconcileFindings({
     current: currentInputs,

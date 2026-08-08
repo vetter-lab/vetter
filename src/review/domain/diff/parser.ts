@@ -19,12 +19,17 @@ function toChangedFile(file: ParseDiffFile, rawPatch: string): ChangedFile {
   const status = resolveStatus(file);
   const path = resolvePath(file, status);
   const addedLines: number[] = [];
+  const addedLineContents: ChangedFile["addedLineContents"] = [];
   const removedLines: number[] = [];
 
   for (const chunk of file.chunks) {
     for (const change of chunk.changes) {
       if (change.type === "add") {
         addedLines.push(change.ln);
+        addedLineContents.push({
+          line: change.ln,
+          content: change.content.startsWith("+") ? change.content.slice(1) : change.content
+        });
       } else if (change.type === "del") {
         removedLines.push(change.ln);
       }
@@ -36,6 +41,7 @@ function toChangedFile(file: ParseDiffFile, rawPatch: string): ChangedFile {
     status,
     patch: rawPatch.trim(),
     addedLines,
+    addedLineContents,
     removedLines,
     scopeKey: path
   };
