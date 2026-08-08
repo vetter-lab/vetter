@@ -56,7 +56,7 @@ async function resolveBotLogin(octokit: Octokit): Promise<string> {
 }
 
 function resolveConfigRef(eventName: string, payload: Record<string, unknown>): string | null {
-  if (eventName === "pull_request" || eventName === "pull_request_review_comment") {
+  if (eventName === "pull_request" || eventName === "pull_request_review_thread") {
     const pullRequest = payload.pull_request as { head?: { sha?: string } } | undefined;
     return pullRequest?.head?.sha ?? null;
   }
@@ -77,7 +77,7 @@ async function runContextReview(input: {
 }): Promise<void> {
   const { context, config, gateway, octokit, botLogin, signal } = input;
 
-  if (context.source === "pull_request_review_comment") {
+  if (context.source === "pull_request_review_thread") {
     await syncReviewSummary({ gateway, context, config, botLogins: new Set([botLogin]), signal });
     return;
   }
@@ -175,8 +175,8 @@ async function main(): Promise<void> {
       const gateway = createOctokitGateway(octokit);
 
       const sender = payload.sender as { login?: unknown } | undefined;
-      if (eventName === "pull_request_review_comment" && sender?.login === botLogin) {
-        return reply.code(202).send({ accepted: false, reason: "bot-authored review comment event" });
+      if (eventName === "pull_request_review_thread" && sender?.login === botLogin) {
+        return reply.code(202).send({ accepted: false, reason: "bot-authored review thread event" });
       }
 
       const configRef = resolveConfigRef(eventName, payload);

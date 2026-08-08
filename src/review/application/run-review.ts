@@ -203,7 +203,7 @@ export async function runReview(input: RunReviewInput): Promise<RunReviewResult>
   } = input;
   const pullRequestRef = toPullRequestRef(context);
 
-  if (context.source === "pull_request_review_comment") {
+  if (context.source === "pull_request_review_thread") {
     return syncReviewSummary({
       gateway,
       context,
