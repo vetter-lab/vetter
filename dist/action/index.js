@@ -54109,21 +54109,23 @@ function createOctokitGateway(octokit) {
         },
         async createReview(input) {
             if (input.comments.length === 0) {
-                return;
+                return [];
             }
-            await octokit.rest.pulls.createReview({
-                owner: input.owner,
-                repo: input.repo,
-                pull_number: input.number,
-                commit_id: input.commitId,
-                event: "COMMENT",
-                comments: input.comments.map((comment) => ({
+            const results = [];
+            for (const comment of input.comments) {
+                const { data } = await octokit.rest.pulls.createReviewComment({
+                    owner: input.owner,
+                    repo: input.repo,
+                    pull_number: input.number,
+                    commit_id: input.commitId,
                     path: comment.path,
+                    body: comment.body,
                     line: comment.line,
-                    side: comment.side,
-                    body: comment.body
-                }))
-            });
+                    side: comment.side
+                });
+                results.push({ commentId: data.id });
+            }
+            return results;
         },
         async updateReviewComment(input) {
             await octokit.rest.pulls.updateReviewComment({
@@ -67234,7 +67236,8 @@ const CODE_REVIEW_EXPERT_RUBRIC = [
     "P3: low-risk style, naming, or optional improvement; report only when specific and useful.",
     "Check correctness, data integrity, authorization, injection, secret exposure, supply chain, error propagation, async failures, input boundaries, resource limits, race conditions, check-then-act behavior, and shared state.",
     "Use the least severe level that accurately describes a concrete problem and explain the impact and fix in the finding body.",
-    "Only report a finding when the diff or supplied context provides evidence; keep the finding anchored to an added diff line."
+    "Only report a finding when the diff or supplied context provides evidence; keep the finding anchored to an added diff line.",
+    "Keep the finding title short (under 10 words) and distinct from the body; put the detailed impact and fix guidance in the body."
 ].join("\n");
 
 ;// CONCATENATED MODULE: ./src/integrations/models/prompts/review/output-contract.ts
@@ -67763,16 +67766,16 @@ function renderTable(rows, input, compact) {
         return "_No findings._";
     }
     const header = compact
-        ? "| Severity | State | File | Line |\n| --- | --- | --- | --- |"
-        : "| Severity | State | File | Line | Title | Link |\n| --- | --- | --- | --- | --- | --- |";
+        ? "| Severity | State | File |\n| --- | --- | --- |"
+        : "| Severity | State | File | Title | Link |\n| --- | --- | --- | --- | --- |";
     const lines = rows.map((row) => {
+        const fileCell = row.line !== null ? `${row.path}:${row.line}` : row.path;
         const cells = compact
-            ? [row.severity, STATE_LABEL[row.state], row.path, row.line !== null ? String(row.line) : "-"]
+            ? [row.severity, STATE_LABEL[row.state], fileCell]
             : [
                 row.severity,
                 STATE_LABEL[row.state],
-                row.path,
-                row.line !== null ? String(row.line) : "-",
+                fileCell,
                 escapeCell(row.title),
                 commentLink(input.owner, input.repo, input.pullRequestNumber, row.commentId)
             ];
@@ -67844,7 +67847,23 @@ async function applyReconciliationPlan(input) {
         side: anchor.side,
         body: renderInlineBody(finding, false)
     }));
-    await gateway.createReview({ ...pullRequestRef, commitId: headSha, comments: reviewComments });
+    const createdComments = await gateway.createReview({ ...pullRequestRef, commitId: headSha, comments: reviewComments });
+    // Backfill the newly created comment IDs into plan.rows so the summary
+    // can link to them immediately rather than waiting for the next run.
+    const fingerprintToId = new Map();
+    for (const [i, ci] of plan.createInline.entries()) {
+        const fp = ci.finding.fingerprint;
+        const id = createdComments[i]?.commentId;
+        if (id !== undefined) {
+            fingerprintToId.set(fp, id);
+        }
+    }
+    for (const row of plan.rows) {
+        const id = fingerprintToId.get(row.fingerprint);
+        if (id !== undefined) {
+            row.commentId = id;
+        }
+    }
     for (const update of plan.updateInline) {
         await gateway.updateReviewComment({
             owner: pullRequestRef.owner,
