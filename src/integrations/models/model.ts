@@ -9,6 +9,8 @@ export interface ModelReviewInput {
   diff: string;
   contextFiles: Array<{ path: string; content: string }>;
   model: string;
+  /** Language for natural-language finding titles and bodies. */
+  language?: string;
 }
 
 export interface ModelReviewResult {

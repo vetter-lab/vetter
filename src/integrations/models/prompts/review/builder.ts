@@ -9,7 +9,7 @@ export interface ReviewPrompt {
 
 export function buildReviewPrompt(input: ModelReviewInput): ReviewPrompt {
   return {
-    system: buildSystemPrompt(),
+    system: buildSystemPrompt(input.language),
     user: buildUserPrompt(input)
   };
 }

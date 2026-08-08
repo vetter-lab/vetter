@@ -1,6 +1,7 @@
 import type { SummaryRow } from "../reconciliation/reconcile.js";
 import { SEVERITIES } from "../severity.js";
 import type { Severity } from "../types.js";
+import { getReviewOutputLabels } from "../language.js";
 
 export interface CheckRunEvaluation {
   conclusion: "success" | "failure";
@@ -14,6 +15,7 @@ export interface EvaluateCheckRunInput {
   rows: SummaryRow[];
   severity: SeverityPolicy;
   failures: Array<{ provider: string; message: string }>;
+  language?: string;
 }
 
 /**
@@ -22,12 +24,13 @@ export interface EvaluateCheckRunInput {
  * must mean every configured provider actually finished.
  */
 export function evaluateCheckRun(input: EvaluateCheckRunInput): CheckRunEvaluation {
+  const labels = getReviewOutputLabels(input.language);
   if (input.failures.length > 0) {
     return {
       conclusion: "failure",
-      title: "Vetter review failed",
+      title: labels.checkRun.failedTitle,
       summary: [
-        "One or more review providers failed to complete. No findings were closed for the affected scope.",
+        labels.checkRun.failedSummary,
         "",
         ...input.failures.map((failure) => `- **${failure.provider}**: ${failure.message}`)
       ].join("\n")
@@ -38,18 +41,18 @@ export function evaluateCheckRun(input: EvaluateCheckRunInput): CheckRunEvaluati
   const blocking = openFindings.some((finding) => input.severity[finding.severity].blockMerge);
 
   const title = blocking
-    ? `Vetter found ${String(openFindings.length)} open finding(s) blocking merge`
+    ? labels.checkRun.blockingTitle(openFindings.length)
     : openFindings.length > 0
-      ? `Vetter found ${String(openFindings.length)} open finding(s)`
-      : "Vetter found no open findings";
+      ? labels.checkRun.openTitle(openFindings.length)
+      : labels.checkRun.emptyTitle;
 
   const summary = [
-    `Open findings: ${String(openFindings.length)}`,
+    `${labels.checkRun.openFindings}: ${String(openFindings.length)}`,
     "",
     ...SEVERITIES.map((severity) => {
       const count = openFindings.filter((finding) => finding.severity === severity).length;
       const blocks = input.severity[severity].blockMerge;
-      return `- **${severity}**: ${String(count)} open (blocks merge: ${String(blocks)})`;
+      return `- **${severity}**: ${String(count)} ${labels.checkRun.openFindings.toLowerCase()} (${labels.checkRun.blocksMerge}: ${blocks ? labels.checkRun.yes : labels.checkRun.no})`;
     })
   ].join("\n");
 

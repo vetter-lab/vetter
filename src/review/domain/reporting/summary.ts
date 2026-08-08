@@ -2,15 +2,10 @@ import type { SummaryRow } from "../reconciliation/reconcile.js";
 import { shortenFindingTitle } from "../findings/title.js";
 import { buildSummaryRowMarker, SUMMARY_MARKER } from "../reconciliation/markers.js";
 import { SEVERITIES } from "../severity.js";
-import type { FindingState, Severity } from "../types.js";
+import type { Severity } from "../types.js";
+import { getReviewOutputLabels } from "../language.js";
 
 const SEVERITY_ORDER = Object.fromEntries(SEVERITIES.map((severity, index) => [severity, index])) as Record<Severity, number>;
-const STATE_LABEL: Record<FindingState, string> = {
-  open: "🔴 open",
-  fixed: "✅ fixed",
-  suppressed: "⚪ suppressed"
-};
-
 /**
  * GitHub caps issue comment bodies at 65536 characters. This stays well
  * under that so the compact fallback always has room to switch in before
@@ -24,6 +19,7 @@ export interface RenderSummaryInput {
   repo: string;
   pullRequestNumber: number;
   headSha: string;
+  language?: string;
 }
 
 function sortRows(rows: SummaryRow[]): SummaryRow[] {
@@ -57,21 +53,22 @@ function locationCell(row: SummaryRow, input: RenderSummaryInput): string {
 }
 
 function renderTable(rows: SummaryRow[], input: RenderSummaryInput, compact: boolean): string {
+  const labels = getReviewOutputLabels(input.language);
   if (rows.length === 0) {
-    return "_No findings._";
+    return labels.noFindings;
   }
 
   const header = compact
-    ? "| Severity | State | File |\n| --- | --- | --- |"
-    : "| Severity | State | File | Title |\n| --- | --- | --- | --- |";
+    ? `| ${labels.tableHeaders.severity} | ${labels.tableHeaders.state} | ${labels.tableHeaders.file} |\n| --- | --- | --- |`
+    : `| ${labels.tableHeaders.severity} | ${labels.tableHeaders.state} | ${labels.tableHeaders.file} | ${labels.tableHeaders.title} |\n| --- | --- | --- | --- |`;
 
   const lines = rows.map((row) => {
     const fileCell = locationCell(row, input);
     const cells = compact
-      ? [row.severity, STATE_LABEL[row.state], fileCell]
+      ? [row.severity, labels.states[row.state], fileCell]
       : [
           row.severity,
-          STATE_LABEL[row.state],
+          labels.states[row.state],
           fileCell,
           escapeCell(shortenFindingTitle(row.title))
         ];
@@ -103,6 +100,7 @@ function renderSummaryOnlyMarkers(rows: SummaryRow[]): string[] {
  * an append-only log.
  */
 export function renderSummaryComment(input: RenderSummaryInput): string {
+  const labels = getReviewOutputLabels(input.language);
   const sorted = sortRows(input.rows);
   const persistedSummaryOnly = renderSummaryOnlyMarkers(sorted);
 
@@ -110,7 +108,7 @@ export function renderSummaryComment(input: RenderSummaryInput): string {
     SUMMARY_MARKER,
     ...persistedSummaryOnly,
     "",
-    "## Vetter review summary",
+    `## ${labels.summaryTitle}`,
     "",
     renderTable(sorted, input, false)
   ].join("\n");
@@ -122,7 +120,7 @@ export function renderSummaryComment(input: RenderSummaryInput): string {
     SUMMARY_MARKER,
     ...persistedSummaryOnly,
     "",
-    "## Vetter review summary",
+    `## ${labels.summaryTitle}`,
     "",
     renderTable(sorted, input, true)
   ].join("\n");

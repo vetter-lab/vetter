@@ -146,7 +146,8 @@ export async function syncReviewSummary(input: SyncReviewSummaryInput): Promise<
     owner: pullRequestRef.owner,
     repo: pullRequestRef.repo,
     pullRequestNumber: pullRequestRef.number,
-    headSha: context.headSha
+    headSha: context.headSha,
+    language: config.review.language
   });
 
   if (signal?.aborted) {
@@ -168,7 +169,12 @@ export async function syncReviewSummary(input: SyncReviewSummaryInput): Promise<
     return { status: "aborted" };
   }
 
-  const evaluation = evaluateCheckRun({ rows, severity: config.severity, failures: [] });
+  const evaluation = evaluateCheckRun({
+    rows,
+    severity: config.severity,
+    failures: [],
+    language: config.review.language
+  });
   await gateway.upsertCheckRun({
     owner: pullRequestRef.owner,
     repo: pullRequestRef.repo,
@@ -227,7 +233,12 @@ export async function runReview(input: RunReviewInput): Promise<RunReviewResult>
     tasks.push({
       name: "llm",
       run: async () => {
-        const result = await modelProvider.review({ diff: reviewDiff, contextFiles, model: config.review.model });
+        const result = await modelProvider.review({
+          diff: reviewDiff,
+          contextFiles,
+          model: config.review.model,
+          language: config.review.language
+        });
         return { findings: result.findings, scopeKeys: result.scopeKeys };
       }
     });
@@ -319,11 +330,17 @@ export async function runReview(input: RunReviewInput): Promise<RunReviewResult>
     owner: pullRequestRef.owner,
     repo: pullRequestRef.repo,
     pullRequestNumber: pullRequestRef.number,
-    headSha: context.headSha
+    headSha: context.headSha,
+    language: config.review.language
   });
   await gateway.createIssueComment({ ...pullRequestRef, body: summaryBody });
 
-  const evaluation = evaluateCheckRun({ rows: plan.rows, severity: config.severity, failures });
+  const evaluation = evaluateCheckRun({
+    rows: plan.rows,
+    severity: config.severity,
+    failures,
+    language: config.review.language
+  });
   await gateway.upsertCheckRun({
     owner: pullRequestRef.owner,
     repo: pullRequestRef.repo,

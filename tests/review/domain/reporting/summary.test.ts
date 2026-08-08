@@ -99,4 +99,19 @@ describe("renderSummaryComment", () => {
       '| P0 | 🔴 open | <a href="https://github.com/owner/repo/pull/1/changes/BASE..head-sha">src/summary-only.ts</a> |'
     );
   });
+
+  it("localizes fixed summary labels", () => {
+    const body = renderSummaryComment({
+      rows: [row("P1", "src/example.ts")],
+      owner: "owner",
+      repo: "repo",
+      pullRequestNumber: 1,
+      headSha: "head-sha",
+      language: "zh-CN"
+    });
+
+    expect(body).toContain("## Vetter 审查摘要");
+    expect(body).toContain("| 严重程度 | 状态 | 文件 | 标题 |");
+    expect(body).toContain("🔴 待处理");
+  });
 });

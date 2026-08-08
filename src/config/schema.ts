@@ -9,6 +9,7 @@ export const reviewConfigSchema = z.object({
     enabled: z.boolean(),
     incremental: z.literal(true),
     model: z.string().min(1),
+    language: z.string().trim().min(1).max(64).regex(/^[^\r\n]+$/),
     maxDiffBytes: z.number().int().positive()
   }),
   events: z.object({

@@ -4,6 +4,7 @@ review:
   enabled: true
   incremental: true
   model: gpt-4o-mini
+  language: en
   maxDiffBytes: 200000
 
 events:
