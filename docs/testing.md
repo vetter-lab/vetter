@@ -41,9 +41,15 @@ And the one summary comment carries:
 <!-- vetter:summary:v1 -->
 ```
 
-Summary-only rows (findings without an inline review comment) also carry a
-hidden `vetter:summary-row:v1` marker so a review-thread state refresh can
-preserve them.
+Every summary row carries a hidden `vetter:summary-row:v1` marker so a
+review-thread state refresh can preserve it, including summary-only rows
+(findings without an inline review comment).
+
+During a normal review run, these summary-row markers are also used as a
+fallback for a finding that is missing from a transient GitHub thread
+snapshot. Thread state remains authoritative whenever the thread is present;
+the fallback prevents a cancelled or overlapping run from dropping a resolved
+finding from the next summary.
 
 Vetter only ever reads or mutates a comment that (a) is authored by a
 configured bot login and (b) contains a valid marker. Comments without a
@@ -75,17 +81,17 @@ Because there is no durable queue or database:
   a fresh run that reconciles against whatever state is actually on
   GitHub, so the system self-heals on the next event rather than staying
   wrong forever.
-- **Deleting a bot comment destroys the state needed to reconcile that
-  specific finding.** Vetter will treat the finding as never having
-  existed and create a new comment for it if it reappears.
+- **Deleting both the bot comment and its summary row destroys the state needed
+  to reconcile that specific finding.** If the summary row remains, Vetter can
+  preserve the finding state until a later complete review replaces it.
 - **Review state cannot be audited independently of GitHub.** There is no
   side channel to inspect what Vetter "thinks" is open besides the actual
   threads and the summary comment.
-- **Duplicate webhook delivery protection is process-local only.** The App
-  scheduler's latest-wins `Map<string, AbortController>` and the stale
-  head-SHA check in `runReview` are what prevent a duplicate/out-of-order
-  delivery from producing wrong or duplicate comments — not idempotency
-  keys or a persisted delivery log.
+- **Duplicate webhook delivery protection is process-local in App mode.** The
+  App scheduler's latest-wins `Map<string, AbortController>` and the stale
+  head-SHA check in `runReview` prevent out-of-order delivery from producing
+  stale comments. Action mode additionally checks the workflow run status
+  before mutation so a cancelled duplicate run exits without writing.
 
 These are accepted tradeoffs for the current design. A non-SQL durable
 queue (Redis, SQS) could reduce the crash-loses-work window without

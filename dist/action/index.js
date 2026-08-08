@@ -67821,14 +67821,17 @@ function rowFromExisting(existing, state) {
  * `GitHubGateway`.
  */
 function reconcileFindings(input) {
-    const { current, existing, completeScopes, botLogins } = input;
+    const { current, existing, persistedSummaryRows = [], completeScopes, botLogins } = input;
     const createInline = [];
     const updateInline = [];
     const resolveThreads = [];
     const reopenThreads = [];
     const summaryOnly = [];
-    const rows = [];
+    const rowsByFingerprint = new Map(persistedSummaryRows.map((row) => [row.fingerprint, row]));
     const matchedFingerprints = new Set();
+    const setRow = (row) => {
+        rowsByFingerprint.set(row.fingerprint, row);
+    };
     for (const { finding, anchor } of current) {
         const match = matchExistingFinding(finding, existing);
         if (match) {
@@ -67839,24 +67842,41 @@ function reconcileFindings(input) {
                         reopenThreads.push(match.threadId);
                     }
                     updateInline.push({ commentId: match.commentId, finding: toRenderable(finding), botResolved: false });
-                    rows.push(rowFromFinding(finding, "open", match.commentId, match.commentUrl));
+                    setRow(rowFromFinding(finding, "open", match.commentId, match.commentUrl));
                 }
                 else {
-                    rows.push(rowFromFinding(finding, "suppressed", match.commentId, match.commentUrl));
+                    setRow(rowFromFinding(finding, "suppressed", match.commentId, match.commentUrl));
                 }
                 continue;
             }
             updateInline.push({ commentId: match.commentId, finding: toRenderable(finding), botResolved: false });
-            rows.push(rowFromFinding(finding, "open", match.commentId, match.commentUrl));
+            setRow(rowFromFinding(finding, "open", match.commentId, match.commentUrl));
+            continue;
+        }
+        const persisted = rowsByFingerprint.get(finding.fingerprint);
+        if (persisted) {
+            if (persisted.state === "fixed") {
+                if (anchor) {
+                    createInline.push({ finding, anchor });
+                    setRow(rowFromFinding(finding, "open", null));
+                }
+                else {
+                    summaryOnly.push(finding);
+                    setRow(rowFromFinding(finding, "open", null));
+                }
+            }
+            else {
+                setRow(rowFromFinding(finding, persisted.state, persisted.commentId, persisted.commentUrl));
+            }
             continue;
         }
         if (anchor) {
             createInline.push({ finding, anchor });
-            rows.push(rowFromFinding(finding, "open", null));
+            setRow(rowFromFinding(finding, "open", null));
         }
         else {
             summaryOnly.push(finding);
-            rows.push(rowFromFinding(finding, "open", null));
+            setRow(rowFromFinding(finding, "open", null));
         }
     }
     for (const existingFinding of existing) {
@@ -67874,16 +67894,23 @@ function reconcileFindings(input) {
                     finding: existingToRenderable(existingFinding),
                     botResolved: true
                 });
-                rows.push(rowFromExisting(existingFinding, "fixed"));
+                setRow(rowFromExisting(existingFinding, "fixed"));
             }
             else {
-                rows.push(rowFromExisting(existingFinding, existingFinding.state));
+                setRow(rowFromExisting(existingFinding, existingFinding.state));
             }
             continue;
         }
-        rows.push(rowFromExisting(existingFinding, existingFinding.state));
+        setRow(rowFromExisting(existingFinding, existingFinding.state));
     }
-    return { createInline, updateInline, resolveThreads, reopenThreads, summaryOnly, rows };
+    return {
+        createInline,
+        updateInline,
+        resolveThreads,
+        reopenThreads,
+        summaryOnly,
+        rows: [...rowsByFingerprint.values()]
+    };
 }
 
 ;// CONCATENATED MODULE: ./src/review/domain/findings/title.ts
@@ -67978,9 +68005,8 @@ function renderTable(rows, input, compact) {
     });
     return [header, ...lines].join("\n");
 }
-function renderSummaryOnlyMarkers(rows) {
+function renderSummaryRowMarkers(rows) {
     return rows
-        .filter((row) => row.commentId === null)
         .map((row) => buildSummaryRowMarker({
         fingerprint: row.fingerprint,
         severity: row.severity,
@@ -67999,10 +68025,10 @@ function renderSummaryOnlyMarkers(rows) {
 function renderSummaryComment(input) {
     const labels = getReviewOutputLabels(input.language);
     const sorted = sortRows(input.rows);
-    const persistedSummaryOnly = renderSummaryOnlyMarkers(sorted);
+    const persistedSummaryRows = renderSummaryRowMarkers(sorted);
     const full = [
         SUMMARY_MARKER,
-        ...persistedSummaryOnly,
+        ...persistedSummaryRows,
         "",
         `## ${labels.summaryTitle}`,
         "",
@@ -68013,7 +68039,7 @@ function renderSummaryComment(input) {
     }
     return [
         SUMMARY_MARKER,
-        ...persistedSummaryOnly,
+        ...persistedSummaryRows,
         "",
         `## ${labels.summaryTitle}`,
         "",
@@ -68095,7 +68121,7 @@ async function applyReconciliationPlan(input) {
  * the hidden marker and the surrounding thread state.
  */
 function toExistingFindings(snapshot, botLogins) {
-    const findings = [];
+    const findingsByFingerprint = new Map();
     for (const thread of snapshot.reviewThreads) {
         for (const comment of thread.comments) {
             const marker = parseFindingMarker(comment.body);
@@ -68105,7 +68131,7 @@ function toExistingFindings(snapshot, botLogins) {
             const lastAction = marker.botResolved ? "bot-resolved" : "updated";
             const resolvedByBot = wasResolvedByBot({ resolvedByLogin: thread.resolvedByLogin, lastAction }, botLogins);
             const state = !thread.isResolved ? "open" : resolvedByBot ? "fixed" : "suppressed";
-            findings.push({
+            const finding = {
                 fingerprint: marker.fingerprint,
                 ruleId: marker.ruleId,
                 source: marker.source,
@@ -68122,10 +68148,31 @@ function toExistingFindings(snapshot, botLogins) {
                 resolvedByLogin: thread.resolvedByLogin,
                 lastAction,
                 state
-            });
+            };
+            const previous = findingsByFingerprint.get(finding.fingerprint);
+            if (!previous || shouldPrefer(finding, previous)) {
+                findingsByFingerprint.set(finding.fingerprint, finding);
+            }
         }
     }
-    return findings;
+    return [...findingsByFingerprint.values()];
+}
+/**
+ * A duplicate fingerprint can be left behind by overlapping workflow runs.
+ * Prefer a human suppression over any reopenable state, then prefer an open
+ * thread over a bot-fixed duplicate so a regression can be handled normally.
+ */
+function shouldPrefer(candidate, current) {
+    const rank = (finding) => {
+        if (finding.state === "suppressed") {
+            return 0;
+        }
+        if (finding.state === "open") {
+            return 1;
+        }
+        return 2;
+    };
+    return rank(candidate) < rank(current);
 }
 
 ;// CONCATENATED MODULE: ./src/review/application/run-review.ts
@@ -68265,7 +68312,7 @@ async function syncReviewSummary(input) {
  * never closes a finding in the scope it was responsible for.
  */
 async function runReview(input) {
-    const { gateway, context, config, modelProvider, analyzerProviders, botLogins, repositoryPath, contextFiles, signal } = input;
+    const { gateway, context, config, modelProvider, analyzerProviders, botLogins, repositoryPath, contextFiles, signal, isRunActive } = input;
     const pullRequestRef = toPullRequestRef(context);
     if (context.source === "pull_request_review_thread") {
         return syncReviewSummary({
@@ -68330,18 +68377,22 @@ async function runReview(input) {
         }
     });
     const currentFindings = deduplicateFindings(drafts.map((draft) => normalizeFinding(draft)));
-    if (signal?.aborted) {
+    if (signal?.aborted || (isRunActive && !(await isRunActive()))) {
         return { status: "aborted" };
     }
     const freshPullRequest = await gateway.getPullRequest(pullRequestRef);
     if (freshPullRequest.headSha !== context.headSha) {
         return { status: "stale" };
     }
-    if (signal?.aborted) {
+    if (signal?.aborted || (isRunActive && !(await isRunActive()))) {
         return { status: "aborted" };
     }
     const reviewState = await gateway.listReviewState({ ...pullRequestRef, botLogins });
     const existingFindings = toExistingFindings(reviewState, botLogins);
+    const existingSummary = await gateway.findSummaryComment({ ...pullRequestRef, botLogins });
+    const persistedSummaryRows = existingSummary
+        ? parseSummaryRowMarkers(existingSummary.body).map(toPersistedSummaryRow)
+        : [];
     const currentInputs = currentFindings.map((finding) => ({
         finding,
         anchor: findReviewAnchor(parsedDiff, finding.path, finding.line)
@@ -68349,21 +68400,17 @@ async function runReview(input) {
     const plan = reconcileFindings({
         current: currentInputs,
         existing: existingFindings,
+        persistedSummaryRows,
         completeScopes,
         botLogins
     });
-    const existingSummary = await gateway.findSummaryComment({ ...pullRequestRef, botLogins });
-    if (existingSummary) {
-        await gateway.deleteIssueComment({
-            owner: pullRequestRef.owner,
-            repo: pullRequestRef.repo,
-            commentId: existingSummary.commentId
-        });
-    }
-    if (signal?.aborted) {
+    if (signal?.aborted || (isRunActive && !(await isRunActive()))) {
         return { status: "aborted" };
     }
     await applyReconciliationPlan({ gateway, pullRequestRef, headSha: context.headSha, plan });
+    if (signal?.aborted || (isRunActive && !(await isRunActive()))) {
+        return { status: "aborted" };
+    }
     const summaryBody = renderSummaryComment({
         rows: plan.rows,
         owner: pullRequestRef.owner,
@@ -68372,7 +68419,17 @@ async function runReview(input) {
         headSha: context.headSha,
         language: config.review.language
     });
-    await gateway.createIssueComment({ ...pullRequestRef, body: summaryBody });
+    if (existingSummary) {
+        await gateway.updateIssueComment({
+            owner: pullRequestRef.owner,
+            repo: pullRequestRef.repo,
+            commentId: existingSummary.commentId,
+            body: summaryBody
+        });
+    }
+    else {
+        await gateway.createIssueComment({ ...pullRequestRef, body: summaryBody });
+    }
     const evaluation = evaluateCheckRun({
         rows: plan.rows,
         severity: config.severity,
@@ -68616,7 +68673,22 @@ async function run() {
             analyzerProviders,
             botLogins: new Set([BOT_LOGIN]),
             repositoryPath: process.env.GITHUB_WORKSPACE ?? process.cwd(),
-            contextFiles: []
+            contextFiles: [],
+            isRunActive: async () => {
+                try {
+                    const { data } = await octokit.rest.actions.getWorkflowRun({
+                        owner: repo.owner,
+                        repo: repo.repo,
+                        run_id: github_context.runId
+                    });
+                    return data.status === "in_progress";
+                }
+                catch {
+                    // A token without actions:read, or a transient API error, must not
+                    // turn an otherwise valid review into a silent no-op.
+                    return true;
+                }
+            }
         });
         if (result.status === "completed" && result.conclusion === "failure") {
             setFailed(`Vetter review for PR #${String(context.pullRequestNumber)} reported a failing check`);
