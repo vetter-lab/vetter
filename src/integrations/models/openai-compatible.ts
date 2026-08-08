@@ -78,21 +78,26 @@ export function createOpenAiCompatibleModelProvider(
           const parsedJson: unknown = JSON.parse(content);
           const parsed = modelResponseSchema.parse(parsedJson);
 
-          for (const finding of parsed.findings) {
-            if (!findReviewAnchor(changedFiles, finding.path, finding.line)) {
+          const anchoredFindings = parsed.findings.map((finding) => {
+            const anchor = findReviewAnchor(changedFiles, finding.path, finding.line, {
+              codeAnchor: finding.codeAnchor,
+              requireCodeAnchor: true
+            });
+            if (!anchor) {
               throw new Error(
-                `model finding targets a line outside the added diff: ${finding.path}:${String(finding.line)}`
+                `model finding code anchor does not match an unambiguous added line: ${finding.path}:${String(finding.line)}`
               );
             }
-          }
+            return { finding, line: anchor.line };
+          });
 
-          const findings: FindingDraft[] = parsed.findings.map((finding) => ({
+          const findings: FindingDraft[] = anchoredFindings.map(({ finding, line }) => ({
             ruleId: finding.ruleId,
             severity: finding.severity,
             title: finding.title,
             body: finding.body,
             path: finding.path,
-            line: finding.line,
+            line,
             codeAnchor: finding.codeAnchor,
             source: "llm",
             scopeKey: `llm:${finding.ruleId}:${finding.path}`

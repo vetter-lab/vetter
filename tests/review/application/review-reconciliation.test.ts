@@ -8,14 +8,14 @@ import type { FindingDraft } from "../../../src/review/domain/types.js";
 
 const patch = ["@@ -1,3 +1,3 @@", " keep", "-old", "+new", " tail"].join("\n");
 
-function finding(ruleId: string, title: string): FindingDraft {
+function finding(ruleId: string, title: string, line = 2): FindingDraft {
   return {
     ruleId,
     severity: "P1",
     title,
     body: `${title} body`,
     path: "src/example.ts",
-    line: 2,
+    line,
     codeAnchor: "new",
     source: "llm",
     scopeKey: `llm:${ruleId}:src/example.ts`
@@ -35,7 +35,7 @@ function existingMarker(input: FindingDraft, botResolved: boolean): string {
 }
 
 it("refreshes manual suppression and fixes an outdated finding in one commit run", async () => {
-  const manual = finding("manual-rule", "Manually suppressed");
+  const manual = finding("manual-rule", "Manually suppressed", 3);
   const fixed = finding("fixed-rule", "Already fixed");
   let summaryBody = "";
   const resolvedThreads: string[] = [];
@@ -143,6 +143,8 @@ it("refreshes manual suppression and fixes an outdated finding in one commit run
   expect(result.status).toBe("completed");
   expect(resolvedThreads).toEqual(["fixed-thread"]);
   const rows = parseSummaryRowMarkers(summaryBody);
-  expect(rows.find((row) => row.fingerprint === computeFingerprint(manual))?.state).toBe("suppressed");
+  expect(rows.find((row) => row.fingerprint === computeFingerprint(manual))).toEqual(
+    expect.objectContaining({ line: 2, state: "suppressed" })
+  );
   expect(rows.find((row) => row.fingerprint === computeFingerprint(fixed))?.state).toBe("fixed");
 });

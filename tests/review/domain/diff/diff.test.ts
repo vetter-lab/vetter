@@ -18,6 +18,32 @@ describe("parseChangedFiles / findReviewAnchor", () => {
     });
   });
 
+  it("corrects a model line using a unique code anchor", () => {
+    const diff = parseChangedFiles([fixtureFile]);
+
+    expect(
+      findReviewAnchor(diff, "src/example.ts", 13, {
+        codeAnchor: "line12 added",
+        requireCodeAnchor: true
+      })
+    ).toEqual({
+      path: "src/example.ts",
+      line: 12,
+      side: "RIGHT"
+    });
+  });
+
+  it("rejects an LLM finding whose code anchor is not in the added diff", () => {
+    const diff = parseChangedFiles([fixtureFile]);
+
+    expect(
+      findReviewAnchor(diff, "src/example.ts", 12, {
+        codeAnchor: "not present",
+        requireCodeAnchor: true
+      })
+    ).toBeNull();
+  });
+
   it("returns null when a finding line is outside the current diff", () => {
     const diff = parseChangedFiles([fixtureFile]);
 
@@ -61,6 +87,7 @@ describe("parseChangedFiles / findReviewAnchor", () => {
         " line15"
       ].join("\n")
     );
+    expect(exampleFile?.addedLineContents).toEqual([{ line: 12, content: "line12 added" }]);
 
     expect(removedFile?.patch).toBe(
       [

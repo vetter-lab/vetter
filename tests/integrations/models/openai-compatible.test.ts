@@ -44,7 +44,7 @@ function completion(path: string, line: number, severity = "P1") {
 }
 
 describe("createOpenAiCompatibleModelProvider", () => {
-  it("retries findings whose path or line is outside the added diff lines", async () => {
+  it("retries invalid paths and corrects a line using the code anchor", async () => {
     const responses = [
       completion("src/not-in-diff.ts", 12),
       completion("src/example.ts", 13),
@@ -62,7 +62,7 @@ describe("createOpenAiCompatibleModelProvider", () => {
 
     const result = await provider.review({ diff: DIFF, contextFiles: [], model: "test-model" });
 
-    expect(attempts).toBe(3);
+    expect(attempts).toBe(2);
     expect(result.findings).toHaveLength(1);
     expect(result.findings[0]).toMatchObject({ path: "src/example.ts", line: 12 });
   });
