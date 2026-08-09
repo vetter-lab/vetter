@@ -81,7 +81,8 @@ it("preserves summary state when a cancelled run omitted old threads from its sn
       return [];
     },
     async updateReviewComment() {},
-    async createIssueComment() {
+    async createIssueComment(input) {
+      updatedSummary = input.body;
       return { commentId: 10 };
     },
     async updateIssueComment(input) {

@@ -68356,6 +68356,17 @@ function toPersistedSummaryRow(input) {
         commentId: null
     };
 }
+async function recreateSummaryComment(input) {
+    // Updating an issue comment does not change its position in GitHub's PR timeline.
+    if (input.existingSummary) {
+        await input.gateway.deleteIssueComment({
+            owner: input.pullRequestRef.owner,
+            repo: input.pullRequestRef.repo,
+            commentId: input.existingSummary.commentId
+        });
+    }
+    await input.gateway.createIssueComment({ ...input.pullRequestRef, body: input.body });
+}
 /**
  * Refreshes the summary and Check Run from the persisted GitHub state only.
  * Review-thread webhook deliveries use this path because resolving a thread
@@ -68404,17 +68415,7 @@ async function syncReviewSummary(input) {
     if (signal?.aborted) {
         return { status: "aborted" };
     }
-    if (existingSummary) {
-        await gateway.updateIssueComment({
-            owner: pullRequestRef.owner,
-            repo: pullRequestRef.repo,
-            commentId: existingSummary.commentId,
-            body: summaryBody
-        });
-    }
-    else {
-        await gateway.createIssueComment({ ...pullRequestRef, body: summaryBody });
-    }
+    await recreateSummaryComment({ gateway, pullRequestRef, existingSummary, body: summaryBody });
     if (signal?.aborted) {
         return { status: "aborted" };
     }
@@ -68573,17 +68574,7 @@ async function runReview(input) {
         headSha: context.headSha,
         language: config.review.language
     });
-    if (existingSummary) {
-        await gateway.updateIssueComment({
-            owner: pullRequestRef.owner,
-            repo: pullRequestRef.repo,
-            commentId: existingSummary.commentId,
-            body: summaryBody
-        });
-    }
-    else {
-        await gateway.createIssueComment({ ...pullRequestRef, body: summaryBody });
-    }
+    await recreateSummaryComment({ gateway, pullRequestRef, existingSummary, body: summaryBody });
     const evaluation = evaluateCheckRun({
         rows: plan.rows,
         severity: config.severity,

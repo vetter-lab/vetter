@@ -72,7 +72,8 @@ it("relocates a manually resolved finding during summary-only sync", async () =>
       return [];
     },
     async updateReviewComment() {},
-    async createIssueComment() {
+    async createIssueComment(input) {
+      summaryBody = input.body;
       return { commentId: 9 };
     },
     async updateIssueComment(input) {
