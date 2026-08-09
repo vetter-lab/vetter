@@ -35,10 +35,10 @@ export function deduplicateFindings(findings: Finding[]): Finding[] {
 /**
  * Matches a normalized finding against existing findings for the same PR.
  * Prefers the first exact fingerprint match. If none exists, falls back to
- * matching by rule + path, but only when that fallback is unambiguous:
- * if more than one existing finding shares the same rule and path, there is
- * no reliable way to tell which one the new finding corresponds to, so the
- * match is rejected. Exact duplicate persisted comments are the same logical
+ * matching by rule + path + code anchor, but only when that fallback is
+ * unambiguous. The anchor guard prevents a finding whose original code was
+ * fixed from being reused for a different finding reported by the same rule
+ * in the same file. Exact duplicate persisted comments are the same logical
  * finding, so the first one is used as the canonical comment.
  */
 export function matchExistingFinding(
@@ -55,6 +55,7 @@ export function matchExistingFinding(
     (candidate) =>
       candidate.ruleId === finding.ruleId &&
       candidate.path === finding.path &&
+      normalize(candidate.codeAnchor) === normalize(finding.codeAnchor) &&
       (fallbackFingerprints === undefined || fallbackFingerprints.has(candidate.fingerprint))
   );
   if (fallbackMatches.length === 1) {

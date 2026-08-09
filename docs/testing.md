@@ -70,16 +70,19 @@ deliberately **excluding the line number**, so a finding that moves within
 a file due to unrelated edits elsewhere keeps its existing comment thread
 instead of spawning a duplicate.
 
-If the exact fingerprint doesn't match, a fallback match by rule + path is
-allowed only when it's unambiguous (exactly one existing finding shares
-that rule and path). Ambiguous fallback candidates are treated as no
-match, and a new finding/comment is created instead of risking a merge
-into the wrong thread.
+If the exact fingerprint doesn't match, a fallback match by rule + path + code
+anchor is allowed only when it's unambiguous (exactly one existing finding
+shares that identity). Requiring the anchor prevents a fixed finding from
+being reused for a different occurrence of the same rule in the same file.
+Ambiguous or changed-anchor candidates are treated as no match, and a new
+finding/comment is created instead of risking a merge into the wrong thread.
 
 GitHub's `line` and `originalLine` are treated as location hints, not finding
 identity. For a finding with a persisted anchor, Vetter searches the previous
 and current file contents and updates the summary location when the anchor
-moves. It only marks the finding fixed when the anchor's old location is part
+moves. If the persisted anchor is unavailable in the previous file, Vetter
+falls back to the persisted line to determine whether the old location is part
+of the current diff. It only marks the finding fixed when that location is part
 of the current diff and the provider scope completed successfully. If the
 anchor occurs multiple times, Vetter keeps the previous location rather than
 guessing.

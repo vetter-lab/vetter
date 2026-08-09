@@ -54023,10 +54023,10 @@ function deduplicateFindings(findings) {
 /**
  * Matches a normalized finding against existing findings for the same PR.
  * Prefers the first exact fingerprint match. If none exists, falls back to
- * matching by rule + path, but only when that fallback is unambiguous:
- * if more than one existing finding shares the same rule and path, there is
- * no reliable way to tell which one the new finding corresponds to, so the
- * match is rejected. Exact duplicate persisted comments are the same logical
+ * matching by rule + path + code anchor, but only when that fallback is
+ * unambiguous. The anchor guard prevents a finding whose original code was
+ * fixed from being reused for a different finding reported by the same rule
+ * in the same file. Exact duplicate persisted comments are the same logical
  * finding, so the first one is used as the canonical comment.
  */
 function matchExistingFinding(finding, existing, fallbackFingerprints) {
@@ -54036,6 +54036,7 @@ function matchExistingFinding(finding, existing, fallbackFingerprints) {
     }
     const fallbackMatches = existing.filter((candidate) => candidate.ruleId === finding.ruleId &&
         candidate.path === finding.path &&
+        normalize(candidate.codeAnchor) === normalize(finding.codeAnchor) &&
         (fallbackFingerprints === undefined || fallbackFingerprints.has(candidate.fingerprint)));
     if (fallbackMatches.length === 1) {
         return fallbackMatches[0] ?? null;
@@ -68023,9 +68024,13 @@ function relocateExistingFindings(input) {
         const changedFile = changedByPath.get(finding.path);
         const baseContent = baseFiles.get(finding.path);
         const currentContent = currentFiles.get(finding.path);
-        const baseLine = finding.codeAnchor && baseContent !== null && baseContent !== undefined
+        const anchoredBaseLine = finding.codeAnchor && baseContent !== null && baseContent !== undefined
             ? findCodeAnchorLine(baseContent, finding.codeAnchor, finding.line)
-            : finding.line;
+            : null;
+        // GitHub's originalLine is still useful when an older provider emitted an
+        // invalid or stale anchor. It lets the diff prove that the old finding was
+        // reviewed instead of leaving the thread open forever.
+        const baseLine = anchoredBaseLine ?? finding.line;
         const currentLine = finding.codeAnchor && currentContent !== null && currentContent !== undefined
             ? findCodeAnchorLine(currentContent, finding.codeAnchor, baseLine ?? finding.line)
             : null;

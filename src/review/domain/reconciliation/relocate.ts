@@ -29,9 +29,13 @@ export function relocateExistingFindings(input: RelocateExistingFindingsInput): 
     const changedFile = changedByPath.get(finding.path);
     const baseContent = baseFiles.get(finding.path);
     const currentContent = currentFiles.get(finding.path);
-    const baseLine = finding.codeAnchor && baseContent !== null && baseContent !== undefined
+    const anchoredBaseLine = finding.codeAnchor && baseContent !== null && baseContent !== undefined
       ? findCodeAnchorLine(baseContent, finding.codeAnchor, finding.line)
-      : finding.line;
+      : null;
+    // GitHub's originalLine is still useful when an older provider emitted an
+    // invalid or stale anchor. It lets the diff prove that the old finding was
+    // reviewed instead of leaving the thread open forever.
+    const baseLine = anchoredBaseLine ?? finding.line;
     const currentLine = finding.codeAnchor && currentContent !== null && currentContent !== undefined
       ? findCodeAnchorLine(currentContent, finding.codeAnchor, baseLine ?? finding.line)
       : null;

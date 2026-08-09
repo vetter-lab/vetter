@@ -116,11 +116,18 @@ describe("matchExistingFinding", () => {
     expect(matchExistingFinding(finding, existing)).toBeNull();
   });
 
-  it("falls back to an unambiguous rule/path match when no exact fingerprint match exists", () => {
+  it("falls back to an unambiguous rule/path/anchor match when no exact fingerprint match exists", () => {
     const finding = normalizeFinding(makeDraft());
-    const existing = [makeExisting({ fingerprint: "stale-a", commentId: 1 })];
+    const existing = [makeExisting({ fingerprint: "stale-a", commentId: 1, codeAnchor: finding.codeAnchor })];
 
     expect(matchExistingFinding(finding, existing)).toBe(existing[0]);
+  });
+
+  it("does not reuse a finding when its code anchor changed", () => {
+    const finding = normalizeFinding(makeDraft({ codeAnchor: "return safe(value);" }));
+    const existing = [makeExisting({ fingerprint: "stale-a", commentId: 1, codeAnchor: "return unsafe(value);" })];
+
+    expect(matchExistingFinding(finding, existing)).toBeNull();
   });
 
   it("does not fall back to an existing finding outside an incremental diff", () => {
