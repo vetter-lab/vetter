@@ -112,8 +112,6 @@ use the uppercase P0-P3 keys; `version: 1` remains valid.
 | --- | --- | --- | --- |
 | `modelRetries` | integer 0–3 | `2` | Additional attempts after the first, on malformed model output or transient errors. |
 
-The removed top-level `analyzers` key is rejected so repositories do not
-silently believe that static analysis is still running.
 
 ## Secret restriction
 

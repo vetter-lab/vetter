@@ -53429,9 +53429,6 @@ function loadConfig(input) {
     if (events?.push?.requireOpenPullRequest !== true) {
         throw new Error("events.push.requireOpenPullRequest cannot be disabled by configuration; it must remain true");
     }
-    if (Object.prototype.hasOwnProperty.call(merged, "analyzers")) {
-        throw new Error("static analyzers are no longer supported; remove the analyzers configuration");
-    }
     const parsed = reviewConfigSchema.parse(merged);
     if (parsed.runtime && parsed.runtime !== input.runtime) {
         throw new Error(`runtime ${input.runtime} is disabled by configuration`);

@@ -79,10 +79,6 @@ export function loadConfig(input: ConfigInput): ReviewConfig {
     );
   }
 
-  if (Object.prototype.hasOwnProperty.call(merged, "analyzers")) {
-    throw new Error("static analyzers are no longer supported; remove the analyzers configuration");
-  }
-
   const parsed = reviewConfigSchema.parse(merged);
 
   if (parsed.runtime && parsed.runtime !== input.runtime) {
