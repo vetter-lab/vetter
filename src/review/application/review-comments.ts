@@ -12,6 +12,7 @@ export function renderInlineBody(finding: RenderableFinding, botResolved: boolea
     source: finding.source,
     scopeKey: finding.scopeKey,
     title: finding.title,
+    codeAnchor: finding.codeAnchor,
     botResolved
   });
 

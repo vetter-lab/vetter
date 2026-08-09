@@ -38,6 +38,8 @@ export interface ExistingFinding {
   title: string;
   body: string;
   path: string;
+  /** Verbatim source snippet persisted in the finding marker. */
+  codeAnchor: string;
   line: number | null;
   commentId: number;
   /** Canonical GitHub URL for the inline comment, when available. */

@@ -14,6 +14,7 @@ describe("syncReviewSummary", () => {
       source: "llm",
       scopeKey: "llm:rule-1:src/example.ts",
       title: "Avoid this pattern",
+      codeAnchor: "return unsafe(value);",
       botResolved: false
     });
     const reviewState: ReviewStateSnapshot = {

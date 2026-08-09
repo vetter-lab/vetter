@@ -126,7 +126,7 @@ The App Webhook endpoint acknowledges a successfully accepted task quickly. Beca
 Each inline comment contains a marker similar to:
 
 ```text
-<!-- vetter:finding:v1 fingerprint="..." rule="..." -->
+<!-- vetter:finding:v2 fingerprint="..." rule="..." anchor="..." -->
 ```
 
 The PR issue comment containing the summary table contains:
@@ -139,7 +139,7 @@ Vetter only manages comments authored by the configured bot identity that contai
 
 ### Finding fingerprint
 
-The v1 fingerprint is a SHA-256 digest of:
+The finding fingerprint is a SHA-256 digest of:
 
 ```text
 rule id
@@ -149,6 +149,13 @@ normalized finding title
 ```
 
 Line numbers are not included, so moving a finding within a file can reuse its comment. If the exact fingerprint does not match, a fallback match is allowed only when rule, path, and normalized title identify one unambiguous candidate. Ambiguous candidates create a new finding instead of merging automatically.
+
+Finding markers also persist the source anchor. Vetter uses normalized anchor
+matching to relocate summary lines after unrelated edits and to map a finding
+back to the old side of an incremental diff. An unchanged anchor is not
+marked fixed merely because GitHub reports the old review comment as
+outdated; an anchor that disappears from a changed old location can be
+marked fixed after the provider scope completes successfully.
 
 ### State rules
 

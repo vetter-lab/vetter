@@ -53873,15 +53873,19 @@ const runAnalyzerProcess = (input) => {
 
 ;// CONCATENATED MODULE: ./src/review/domain/reconciliation/markers.ts
 
-const FINDING_MARKER_PATTERN = /<!--\s*vetter:finding:v1\s+fingerprint="([^"]*)"\s+rule="([^"]*)"\s+severity="([^"]*)"\s+source="([^"]*)"\s+scope="([^"]*)"\s+title="([^"]*)"\s+bot-resolved="(true|false)"\s*-->/;
+const FINDING_MARKER_PATTERN = /<!--\s*vetter:finding:v2\s+fingerprint="([^"]*)"\s+rule="([^"]*)"\s+severity="([^"]*)"\s+source="([^"]*)"\s+scope="([^"]*)"\s+title="([^"]*)"\s+anchor="([^"]*)"\s+bot-resolved="(true|false)"\s*-->/;
 const SUMMARY_MARKER_PATTERN = /<!--\s*vetter:summary:v1\s*-->/;
 const SUMMARY_ROW_MARKER_PATTERN = /<!--\s*vetter:summary-row:v1\s+fingerprint="([^"]*)"\s+severity="([^"]*)"\s+title="([^"]*)"\s+path="([^"]*)"\s+line="(null|[0-9]+)"\s+state="(open|fixed|suppressed)"\s*-->/g;
 const SUMMARY_MARKER = "<!-- vetter:summary:v1 -->";
 function escapeAttr(value) {
-    return value.replace(/"/g, "&quot;");
+    return value.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 function unescapeAttr(value) {
-    return value.replace(/&quot;/g, '"');
+    return value
+        .replace(/&gt;/g, ">")
+        .replace(/&lt;/g, "<")
+        .replace(/&quot;/g, '"')
+        .replace(/&amp;/g, "&");
 }
 /**
  * Renders the hidden marker embedded in every Vetter-managed inline comment.
@@ -53891,28 +53895,29 @@ function unescapeAttr(value) {
  */
 function buildFindingMarker(fields) {
     return [
-        "<!-- vetter:finding:v1",
+        "<!-- vetter:finding:v2",
         `fingerprint="${escapeAttr(fields.fingerprint)}"`,
         `rule="${escapeAttr(fields.ruleId)}"`,
         `severity="${escapeAttr(fields.severity)}"`,
         `source="${escapeAttr(fields.source)}"`,
         `scope="${escapeAttr(fields.scopeKey)}"`,
         `title="${escapeAttr(fields.title)}"`,
+        `anchor="${escapeAttr(fields.codeAnchor)}"`,
         `bot-resolved="${fields.botResolved ? "true" : "false"}"`,
         "-->"
     ].join(" ");
 }
 /**
  * Extracts the finding identity/rendering fields from a comment body, or
- * `null` when the body does not carry a valid v1 finding marker.
+ * `null` when the body does not carry a valid finding marker.
  */
 function parseFindingMarker(body) {
     const match = FINDING_MARKER_PATTERN.exec(body);
     if (!match) {
         return null;
     }
-    const [, fingerprint, ruleId, severity, source, scopeKey, title, botResolved] = match;
-    if (!fingerprint || !severity || !source || scopeKey === undefined || title === undefined) {
+    const [, fingerprint, ruleId, severity, source, scopeKey, title, codeAnchor, botResolved] = match;
+    if (!fingerprint || !severity || !source || scopeKey === undefined || title === undefined || !codeAnchor?.trim()) {
         return null;
     }
     const parsedSeverity = parseSeverity(severity);
@@ -53926,6 +53931,7 @@ function parseFindingMarker(body) {
         source: source,
         scopeKey,
         title: unescapeAttr(title),
+        codeAnchor: unescapeAttr(codeAnchor),
         botResolved: botResolved === "true"
     };
 }
@@ -54080,6 +54086,7 @@ function toRenderable(finding) {
         title: finding.title,
         body: finding.body,
         path: finding.path,
+        codeAnchor: finding.codeAnchor,
         line: finding.line
     };
 }
@@ -54093,6 +54100,7 @@ function existingToRenderable(existing) {
         title: existing.title,
         body: existing.body,
         path: existing.path,
+        codeAnchor: existing.codeAnchor,
         line: existing.line
     };
 }
@@ -67377,6 +67385,43 @@ class BedrockOpenAI extends OpenAI {
 //# sourceMappingURL=index.mjs.map
 ;// CONCATENATED MODULE: ./src/review/domain/diff/anchor.ts
 
+function findAnchorMatches(lines, codeAnchor) {
+    const anchorLines = normalize(codeAnchor).split("\n").filter((value) => value.length > 0);
+    if (anchorLines.length === 0) {
+        return [];
+    }
+    const matches = [];
+    for (let index = 0; index <= lines.length - anchorLines.length; index += 1) {
+        const candidate = lines[index];
+        if (!candidate) {
+            continue;
+        }
+        const matchesAnchor = anchorLines.every((anchorLine, offset) => {
+            const next = lines[index + offset];
+            return next !== undefined && next.line === candidate.line + offset && normalize(next.content).includes(anchorLine);
+        });
+        if (matchesAnchor) {
+            matches.push(candidate.line);
+        }
+    }
+    return matches;
+}
+/**
+ * Finds a unique source location for a persisted code anchor. A preferred
+ * line can disambiguate repeated snippets only when it still points to one of
+ * the matches; otherwise the result is intentionally rejected as ambiguous.
+ */
+function findCodeAnchorLine(content, codeAnchor, preferredLine) {
+    const lines = content.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n");
+    const matches = findAnchorMatches(lines.map((content, index) => ({ line: index + 1, content })), codeAnchor);
+    if (matches.length === 0) {
+        return null;
+    }
+    if (matches.length === 1) {
+        return matches[0] ?? null;
+    }
+    return preferredLine !== null && preferredLine !== undefined && matches.includes(preferredLine) ? preferredLine : null;
+}
 /**
  * Only added lines in the current diff can receive an inline review comment.
  */
@@ -67398,22 +67443,14 @@ function findReviewAnchor(files, path, line, options = {}) {
     return { path, line, side: "RIGHT" };
 }
 function findCodeAnchor(file, codeAnchor, reportedLine) {
-    const anchorLines = normalize(codeAnchor).split("\n").filter((value) => value.length > 0);
-    if (anchorLines.length === 0) {
-        return null;
-    }
-    const matches = file.addedLineContents.filter((candidate, index, lines) => anchorLines.every((anchorLine, offset) => {
-        const next = lines[index + offset];
-        return next !== undefined && next.line === candidate.line + offset && normalize(next.content).includes(anchorLine);
-    }));
+    const matches = findAnchorMatches(file.addedLineContents, codeAnchor);
     if (matches.length === 0) {
         return null;
     }
     if (matches.length > 1) {
-        const reportedMatch = matches.find((match) => match.line === reportedLine);
-        return reportedMatch ? { path: file.path, line: reportedMatch.line, side: "RIGHT" } : null;
+        return matches.includes(reportedLine) ? { path: file.path, line: reportedLine, side: "RIGHT" } : null;
     }
-    return { path: file.path, line: matches[0].line, side: "RIGHT" };
+    return { path: file.path, line: matches[0], side: "RIGHT" };
 }
 
 // EXTERNAL MODULE: ./node_modules/.pnpm/parse-diff@0.12.0/node_modules/parse-diff/index.js
@@ -67970,6 +68007,38 @@ function evaluateCheckRun(input) {
     return { conclusion: blocking ? "failure" : "success", title, summary };
 }
 
+;// CONCATENATED MODULE: ./src/review/domain/reconciliation/relocate.ts
+
+/**
+ * Reconciles persisted comment locations with source content. GitHub's
+ * `line` becomes null for outdated comments, so it is only a fallback. The
+ * persisted anchor is used to update display locations and to map a finding
+ * back to the old side of the incremental diff before deciding it was fixed.
+ */
+function relocateExistingFindings(input) {
+    const { existing, changedFiles, currentFiles, baseFiles = new Map() } = input;
+    const changedByPath = new Map(changedFiles.map((file) => [file.path, file]));
+    const reviewedFingerprints = new Set();
+    const findings = existing.map((finding) => {
+        const changedFile = changedByPath.get(finding.path);
+        const baseContent = baseFiles.get(finding.path);
+        const currentContent = currentFiles.get(finding.path);
+        const baseLine = finding.codeAnchor && baseContent !== null && baseContent !== undefined
+            ? findCodeAnchorLine(baseContent, finding.codeAnchor, finding.line)
+            : finding.line;
+        const currentLine = finding.codeAnchor && currentContent !== null && currentContent !== undefined
+            ? findCodeAnchorLine(currentContent, finding.codeAnchor, baseLine ?? finding.line)
+            : null;
+        if (changedFile && (changedFile.status === "deleted" ||
+            (baseLine !== null &&
+                (changedFile.addedLines.includes(baseLine) || changedFile.removedLines.includes(baseLine))))) {
+            reviewedFingerprints.add(finding.fingerprint);
+        }
+        return currentLine === null ? finding : { ...finding, line: currentLine };
+    });
+    return { findings, reviewedFingerprints };
+}
+
 ;// CONCATENATED MODULE: ./src/review/domain/findings/title.ts
 const MAX_TITLE_WORDS = 10;
 const MAX_TITLE_LENGTH = 96;
@@ -68115,6 +68184,7 @@ function renderInlineBody(finding, botResolved) {
         source: finding.source,
         scopeKey: finding.scopeKey,
         title: finding.title,
+        codeAnchor: finding.codeAnchor,
         botResolved
     });
     return [
@@ -68197,6 +68267,7 @@ function toExistingFindings(snapshot, botLogins) {
                 title: marker.title,
                 body: comment.body,
                 path: comment.path,
+                codeAnchor: marker.codeAnchor,
                 line: comment.line ?? comment.originalLine,
                 commentId: comment.commentId,
                 ...(comment.htmlUrl !== undefined ? { commentUrl: comment.htmlUrl } : {}),
@@ -68243,6 +68314,7 @@ function shouldPrefer(candidate, current) {
 
 
 
+
 /**
  * Reconstructs a full unified-diff-with-headers string for one file from
  * GitHub's per-file `patch` field, which contains only `@@` hunks. `parse-diff`
@@ -68263,6 +68335,14 @@ function toPullRequestRef(context) {
         repo: context.repository.name,
         number: context.pullRequestNumber
     };
+}
+async function loadFileContents(gateway, pullRequestRef, ref, paths) {
+    const uniquePaths = [...new Set(paths)];
+    const entries = await Promise.all(uniquePaths.map(async (path) => [
+        path,
+        await gateway.getFileContent({ ...pullRequestRef, ref, path }).catch(() => null)
+    ]));
+    return new Map(entries);
 }
 function toSummaryRow(existing) {
     return {
@@ -68307,13 +68387,20 @@ async function syncReviewSummary(input) {
         return { status: "aborted" };
     }
     const reviewState = await gateway.listReviewState({ ...pullRequestRef, botLogins });
+    const existingFindings = toExistingFindings(reviewState, botLogins);
+    const currentFiles = await loadFileContents(gateway, pullRequestRef, context.headSha, existingFindings.filter((finding) => finding.codeAnchor.length > 0).map((finding) => finding.path));
+    const relocated = relocateExistingFindings({
+        existing: existingFindings,
+        changedFiles: [],
+        currentFiles
+    });
     const existingSummary = await gateway.findSummaryComment({ ...pullRequestRef, botLogins });
     const rowsByFingerprint = new Map();
     const persistedRows = existingSummary ? parseSummaryRowMarkers(existingSummary.body).map(toPersistedSummaryRow) : [];
     for (const row of persistedRows) {
         rowsByFingerprint.set(row.fingerprint, row);
     }
-    for (const row of toExistingFindings(reviewState, botLogins).map(toSummaryRow)) {
+    for (const row of relocated.findings.map(toSummaryRow)) {
         rowsByFingerprint.set(row.fingerprint, row);
     }
     const rows = [...rowsByFingerprint.values()];
@@ -68449,20 +68536,17 @@ async function runReview(input) {
         return { status: "aborted" };
     }
     const reviewState = await gateway.listReviewState({ ...pullRequestRef, botLogins });
-    const existingFindings = toExistingFindings(reviewState, botLogins);
-    const reviewedExistingFingerprints = new Set(existingFindings
-        .filter((existing) => {
-        const changedFile = parsedDiff.find((file) => file.path === existing.path);
-        if (!changedFile) {
-            return false;
-        }
-        if (changedFile.status === "deleted") {
-            return true;
-        }
-        return existing.line !== null &&
-            (changedFile.addedLines.includes(existing.line) || changedFile.removedLines.includes(existing.line));
-    })
-        .map((existing) => existing.fingerprint));
+    const persistedFindings = toExistingFindings(reviewState, botLogins);
+    const currentFiles = await loadFileContents(gateway, pullRequestRef, context.headSha, persistedFindings.filter((finding) => finding.codeAnchor.length > 0).map((finding) => finding.path));
+    const baseFiles = await loadFileContents(gateway, pullRequestRef, context.reviewBaseSha ?? context.baseSha, persistedFindings.filter((finding) => finding.codeAnchor.length > 0).map((finding) => finding.path));
+    const relocated = relocateExistingFindings({
+        existing: persistedFindings,
+        changedFiles: parsedDiff,
+        currentFiles,
+        baseFiles
+    });
+    const existingFindings = relocated.findings;
+    const reviewedExistingFingerprints = relocated.reviewedFingerprints;
     const existingSummary = await gateway.findSummaryComment({ ...pullRequestRef, botLogins });
     const persistedSummaryRows = existingSummary
         ? parseSummaryRowMarkers(existingSummary.body).map(toPersistedSummaryRow)

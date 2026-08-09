@@ -8,6 +8,7 @@ const fields = {
   source: "llm" as const,
   scopeKey: "llm:rule:file.ts",
   title: "Title",
+  codeAnchor: "const value = 1;",
   botResolved: false
 };
 
@@ -15,6 +16,19 @@ describe("finding markers", () => {
   it("writes and reads canonical P0-P3 values", () => {
     const marker = buildFindingMarker({ ...fields, severity: "P3" });
     expect(parseFindingMarker(marker)?.severity).toBe("P3");
+  });
+
+  it("persists a code anchor in the v2 marker", () => {
+    const marker = buildFindingMarker({ ...fields, codeAnchor: 'const value = "new";' });
+
+    expect(marker).toContain("vetter:finding:v2");
+    expect(parseFindingMarker(marker)?.codeAnchor).toBe('const value = "new";');
+  });
+
+  it("rejects a marker without a code anchor", () => {
+    const marker = '<!-- vetter:finding:v2 fingerprint="fp" rule="rule" severity="P0" source="llm" scope="llm:rule:file.ts" title="Title" bot-resolved="false" -->';
+
+    expect(parseFindingMarker(marker)).toBeNull();
   });
 
   it("maps a legacy marker severity while reading persisted state", () => {

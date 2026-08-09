@@ -32,6 +32,7 @@ function makeExisting(overrides: Partial<ExistingFinding> = {}): ExistingFinding
     title: "Avoid console statements",
     body: "Remove the console.log call.",
     path: "src/example.ts",
+    codeAnchor: "",
     line: 12,
     commentId: 1,
     threadId: null,
