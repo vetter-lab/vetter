@@ -35,7 +35,7 @@ const OUTPUT_LABELS: Record<string, ReviewOutputLabels> = {
     states: { open: "🔴 open", fixed: "✅ fixed", dismissed: "⚪ dismissed" },
     checkRun: {
       failedTitle: "Vetter review failed",
-      failedSummary: "One or more review providers failed to complete. No findings were closed for the affected scope.",
+      failedSummary: "The LLM review failed to complete. No findings were closed for the affected scope.",
       openFindings: "Open findings",
       blocksMerge: "blocks merge",
       yes: "true",
@@ -52,7 +52,7 @@ const OUTPUT_LABELS: Record<string, ReviewOutputLabels> = {
     states: { open: "🔴 待处理", fixed: "✅ 已修复", dismissed: "⚪ 已忽略" },
     checkRun: {
       failedTitle: "Vetter 审查失败",
-      failedSummary: "一个或多个审查提供方未能完成。受影响范围内的问题未被关闭。",
+      failedSummary: "LLM 审查未能完成。受影响范围内的问题未被关闭。",
       openFindings: "未解决问题",
       blocksMerge: "阻止合并",
       yes: "是",
@@ -69,7 +69,7 @@ const OUTPUT_LABELS: Record<string, ReviewOutputLabels> = {
     states: { open: "🔴 未対応", fixed: "✅ 修正済み", dismissed: "⚪ 無視済み" },
     checkRun: {
       failedTitle: "Vetter レビューに失敗しました",
-      failedSummary: "1つ以上のレビュー provider が完了しませんでした。対象範囲の問題はクローズされていません。",
+      failedSummary: "LLM レビューが完了しませんでした。対象範囲の問題はクローズされていません。",
       openFindings: "未解決の問題",
       blocksMerge: "マージをブロック",
       yes: "はい",
@@ -86,7 +86,7 @@ const OUTPUT_LABELS: Record<string, ReviewOutputLabels> = {
     states: { open: "🔴 미해결", fixed: "✅ 수정됨", dismissed: "⚪ 무시됨" },
     checkRun: {
       failedTitle: "Vetter 리뷰 실패",
-      failedSummary: "하나 이상의 리뷰 제공자가 완료되지 않았습니다. 해당 범위의 문제는 종료되지 않았습니다.",
+      failedSummary: "LLM 리뷰가 완료되지 않았습니다. 해당 범위의 문제는 종료되지 않았습니다.",
       openFindings: "미해결 문제",
       blocksMerge: "병합 차단",
       yes: "예",
@@ -103,7 +103,7 @@ const OUTPUT_LABELS: Record<string, ReviewOutputLabels> = {
     states: { open: "🔴 abierto", fixed: "✅ corregido", dismissed: "⚪ ignorado" },
     checkRun: {
       failedTitle: "La revisión de Vetter falló",
-      failedSummary: "Uno o más proveedores de revisión no terminaron. No se cerraron problemas en el alcance afectado.",
+      failedSummary: "La revisión LLM no terminó. No se cerraron problemas en el alcance afectado.",
       openFindings: "Problemas abiertos",
       blocksMerge: "bloquea la fusión",
       yes: "sí",
@@ -120,7 +120,7 @@ const OUTPUT_LABELS: Record<string, ReviewOutputLabels> = {
     states: { open: "🔴 ouvert", fixed: "✅ corrigé", dismissed: "⚪ ignoré" },
     checkRun: {
       failedTitle: "La revue Vetter a échoué",
-      failedSummary: "Un ou plusieurs fournisseurs de revue n'ont pas terminé. Aucun problème n'a été fermé pour la portée concernée.",
+      failedSummary: "La revue LLM n'a pas terminé. Aucun problème n'a été fermé pour la portée concernée.",
       openFindings: "Problèmes ouverts",
       blocksMerge: "bloque la fusion",
       yes: "oui",
@@ -137,7 +137,7 @@ const OUTPUT_LABELS: Record<string, ReviewOutputLabels> = {
     states: { open: "🔴 offen", fixed: "✅ behoben", dismissed: "⚪ ignoriert" },
     checkRun: {
       failedTitle: "Vetter-Review fehlgeschlagen",
-      failedSummary: "Mindestens ein Review-Anbieter wurde nicht abgeschlossen. Für den betroffenen Bereich wurden keine Probleme geschlossen.",
+      failedSummary: "Die LLM-Überprüfung wurde nicht abgeschlossen. Für den betroffenen Bereich wurden keine Probleme geschlossen.",
       openFindings: "Offene Probleme",
       blocksMerge: "blockiert den Merge",
       yes: "ja",

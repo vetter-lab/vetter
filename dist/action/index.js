@@ -22793,7 +22793,7 @@ const zlib = __nccwpck_require__(8522)
 const { redirectStatusSet, referrerPolicySet: referrerPolicyTokens, badPortsSet } = __nccwpck_require__(4578)
 const { getGlobalOrigin } = __nccwpck_require__(8624)
 const { collectASequenceOfCodePoints, collectAnHTTPQuotedString, removeChars, parseMIMEType } = __nccwpck_require__(4003)
-const { performance } = __nccwpck_require__(643)
+const { performance } = __nccwpck_require__(3024)
 const { isBlobLike, ReadableStreamFrom, isValidHTTPToken, normalizedMethodRecordsBase } = __nccwpck_require__(4393)
 const assert = __nccwpck_require__(4589)
 const { isUint8Array } = __nccwpck_require__(3429)
@@ -28969,7 +28969,7 @@ module.exports = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("node:net");
 
 /***/ }),
 
-/***/ 643:
+/***/ 3024:
 /***/ ((module) => {
 
 module.exports = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("node:perf_hooks");
@@ -45532,7 +45532,7 @@ function merge_isPlainObject(value) {
  * Deep-merges plain objects left to right: later sources win. Arrays and
  * other non-object values are replaced wholesale rather than concatenated,
  * so a repository or external override can fully redefine a list such as
- * `analyzers` or `branchPatterns`.
+ * `branchPatterns`.
  */
 function deepMerge(...sources) {
     return sources.reduce((accumulator, source) => mergeTwo(accumulator, source), {});
@@ -53341,11 +53341,8 @@ const reviewConfigSchema = object({
         P2: severityRule,
         P3: severityRule
     }),
-    analyzers: array(schemas_enum(["semgrep", "eslint", "ruff", "golangci-lint"])),
     limits: object({
-        modelRetries: schemas_number().int().min(0).max(3),
-        analyzerTimeoutMs: schemas_number().int().positive(),
-        maxAnalyzerOutputBytes: schemas_number().int().positive()
+        modelRetries: schemas_number().int().min(0).max(3)
     })
 });
 /**
@@ -53401,14 +53398,10 @@ const builtInDefaults = {
         P2: { blockMerge: false },
         P3: { blockMerge: false }
     },
-    analyzers: [],
     limits: {
-        modelRetries: 2,
-        analyzerTimeoutMs: 30_000,
-        maxAnalyzerOutputBytes: 1_000_000
+        modelRetries: 2
     }
 };
-const ALLOWED_ANALYZERS = new Set(["semgrep", "eslint", "ruff", "golangci-lint"]);
 /**
  * Parses repository-supplied `.vetter.yml` text into a plain object,
  * rejecting non-object YAML roots and any secret-shaped keys.
@@ -53436,424 +53429,12 @@ function loadConfig(input) {
     if (events?.push?.requireOpenPullRequest !== true) {
         throw new Error("events.push.requireOpenPullRequest cannot be disabled by configuration; it must remain true");
     }
-    const analyzers = merged.analyzers;
-    if (Array.isArray(analyzers)) {
-        for (const analyzer of analyzers) {
-            if (!ALLOWED_ANALYZERS.has(analyzer)) {
-                throw new Error(`configuration lists an analyzer that is not in the allowed analyzer set: ${String(analyzer)}`);
-            }
-        }
-    }
     const parsed = reviewConfigSchema.parse(merged);
     if (parsed.runtime && parsed.runtime !== input.runtime) {
         throw new Error(`runtime ${input.runtime} is disabled by configuration`);
     }
     return parsed;
 }
-
-;// CONCATENATED MODULE: external "node:fs"
-const external_node_fs_namespaceObject = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("node:fs");
-;// CONCATENATED MODULE: external "node:path"
-const external_node_path_namespaceObject = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("node:path");
-;// CONCATENATED MODULE: ./src/integrations/analyzers/source-anchor.ts
-
-
-function toRelativePath(repositoryPath, rawPath) {
-    return (0,external_node_path_namespaceObject.isAbsolute)(rawPath) ? (0,external_node_path_namespaceObject.relative)(repositoryPath, rawPath) : rawPath;
-}
-/** Reads a source range from the checkout for use as a finding anchor. */
-function readSourceAnchor(repositoryPath, rawPath, startLine, endLine = startLine) {
-    try {
-        const relativePath = toRelativePath(repositoryPath, rawPath);
-        const content = (0,external_node_fs_namespaceObject.readFileSync)((0,external_node_path_namespaceObject.join)(repositoryPath, relativePath), "utf8");
-        const source = content.split("\n").slice(startLine - 1, endLine).join("\n").trim();
-        return source.length > 0 ? source : null;
-    }
-    catch {
-        return null;
-    }
-}
-
-;// CONCATENATED MODULE: ./src/integrations/analyzers/eslint.ts
-
-const SOURCE = "eslint";
-function mapSeverity(severity) {
-    return severity >= 2 ? "P1" : "P3";
-}
-/**
- * ESLint adapter: runs `eslint --format json <changedPaths...>` and converts
- * each message into a `FindingDraft`. Only changed paths selected by the
- * core are passed on the command line, via a fixed argument array (never a
- * shell string).
- *
- * ESLint exits 1 when lint problems are found; that is a successful run, not
- * a failure. Exit code 2 (fatal CLI/config error) and any other unexpected
- * code, a timeout, or unparsable output are treated as failures by
- * throwing, so the caller never closes existing findings based on a run
- * that didn't complete.
- */
-function createEslintAnalyzer(processRunner) {
-    return {
-        name: SOURCE,
-        async run(input) {
-            if (input.changedPaths.length === 0) {
-                return { findings: [], completedScopes: [] };
-            }
-            const result = await processRunner({
-                command: "eslint",
-                args: ["--format", "json", ...input.changedPaths],
-                cwd: input.repositoryPath,
-                timeoutMs: input.timeoutMs,
-                maxOutputBytes: input.maxOutputBytes
-            });
-            if (result.timedOut) {
-                throw new Error("eslint timed out");
-            }
-            if (result.exitCode !== 0 && result.exitCode !== 1) {
-                throw new Error(`eslint exited with code ${String(result.exitCode)}: ${result.stderr}`);
-            }
-            let parsed;
-            try {
-                parsed = JSON.parse(result.stdout);
-            }
-            catch (error) {
-                throw new Error(`eslint produced invalid JSON output: ${String(error)}`);
-            }
-            const findings = [];
-            for (const fileResult of parsed) {
-                const relativePath = toRelativePath(input.repositoryPath, fileResult.filePath);
-                for (const message of fileResult.messages) {
-                    const ruleId = message.ruleId ?? "eslint";
-                    const codeAnchor = readSourceAnchor(input.repositoryPath, relativePath, message.line) || message.message;
-                    findings.push({
-                        ruleId,
-                        severity: mapSeverity(message.severity),
-                        title: message.message.split("\n")[0] ?? ruleId,
-                        body: message.message,
-                        path: relativePath,
-                        line: message.line,
-                        codeAnchor,
-                        source: SOURCE,
-                        scopeKey: `${SOURCE}:${ruleId}:${relativePath}`
-                    });
-                }
-            }
-            const completedScopes = input.changedPaths.map((path) => `${SOURCE}:${path}`);
-            return { findings, completedScopes };
-        }
-    };
-}
-
-;// CONCATENATED MODULE: ./src/integrations/analyzers/golangci-lint.ts
-
-const golangci_lint_SOURCE = "golangci-lint";
-function golangci_lint_mapSeverity(raw) {
-    switch ((raw ?? "").toLowerCase()) {
-        case "error":
-            return "P1";
-        default:
-            return "P3";
-    }
-}
-/**
- * golangci-lint adapter: runs `golangci-lint run --out-format json
- * <changedPaths...>` and converts each issue into a `FindingDraft`. Only
- * changed paths selected by the core are passed on the command line, via a
- * fixed argument array (never a shell string). Unlike the other adapters,
- * golangci-lint's JSON output already includes the offending source lines
- * (`SourceLines`), so no extra filesystem read is needed for the anchor.
- *
- * `golangci-lint run` exits 1 when issues are found; that is a successful
- * run, not a failure. Any other unexpected exit code, a timeout, or
- * unparsable output is treated as a failure by throwing, so the caller
- * never closes existing findings based on a run that didn't complete.
- */
-function createGolangciLintAnalyzer(processRunner) {
-    return {
-        name: golangci_lint_SOURCE,
-        async run(input) {
-            if (input.changedPaths.length === 0) {
-                return { findings: [], completedScopes: [] };
-            }
-            const result = await processRunner({
-                command: "golangci-lint",
-                args: ["run", "--out-format", "json", ...input.changedPaths],
-                cwd: input.repositoryPath,
-                timeoutMs: input.timeoutMs,
-                maxOutputBytes: input.maxOutputBytes
-            });
-            if (result.timedOut) {
-                throw new Error("golangci-lint timed out");
-            }
-            if (result.exitCode !== 0 && result.exitCode !== 1) {
-                throw new Error(`golangci-lint exited with code ${String(result.exitCode)}: ${result.stderr}`);
-            }
-            let parsed;
-            try {
-                parsed = JSON.parse(result.stdout);
-            }
-            catch (error) {
-                throw new Error(`golangci-lint produced invalid JSON output: ${String(error)}`);
-            }
-            const issues = parsed.Issues ?? [];
-            const findings = issues.map((issue) => {
-                const relativePath = toRelativePath(input.repositoryPath, issue.Pos.Filename);
-                const ruleId = issue.FromLinter;
-                return {
-                    ruleId,
-                    severity: golangci_lint_mapSeverity(issue.Severity),
-                    title: issue.Text.split("\n")[0] ?? ruleId,
-                    body: issue.Text,
-                    path: relativePath,
-                    line: issue.Pos.Line,
-                    codeAnchor: (issue.SourceLines ?? []).join("\n").trim() || issue.Text,
-                    source: golangci_lint_SOURCE,
-                    scopeKey: `${golangci_lint_SOURCE}:${ruleId}:${relativePath}`
-                };
-            });
-            const completedScopes = input.changedPaths.map((path) => `${golangci_lint_SOURCE}:${path}`);
-            return { findings, completedScopes };
-        }
-    };
-}
-
-;// CONCATENATED MODULE: ./src/integrations/analyzers/ruff.ts
-
-const ruff_SOURCE = "ruff";
-/**
- * Ruff adapter: runs `ruff check --output-format json <changedPaths...>` and
- * converts each diagnostic into a `FindingDraft`. Only changed paths
- * selected by the core are passed on the command line, via a fixed argument
- * array (never a shell string).
- *
- * `ruff check` exits 1 when violations are found; that is a successful run,
- * not a failure. Any other unexpected exit code, a timeout, or unparsable
- * output is treated as a failure by throwing, so the caller never closes
- * existing findings based on a run that didn't complete.
- */
-function createRuffAnalyzer(processRunner) {
-    return {
-        name: ruff_SOURCE,
-        async run(input) {
-            if (input.changedPaths.length === 0) {
-                return { findings: [], completedScopes: [] };
-            }
-            const result = await processRunner({
-                command: "ruff",
-                args: ["check", "--output-format", "json", ...input.changedPaths],
-                cwd: input.repositoryPath,
-                timeoutMs: input.timeoutMs,
-                maxOutputBytes: input.maxOutputBytes
-            });
-            if (result.timedOut) {
-                throw new Error("ruff timed out");
-            }
-            if (result.exitCode !== 0 && result.exitCode !== 1) {
-                throw new Error(`ruff exited with code ${String(result.exitCode)}: ${result.stderr}`);
-            }
-            let parsed;
-            try {
-                parsed = JSON.parse(result.stdout);
-            }
-            catch (error) {
-                throw new Error(`ruff produced invalid JSON output: ${String(error)}`);
-            }
-            const findings = parsed.map((diagnostic) => {
-                const relativePath = toRelativePath(input.repositoryPath, diagnostic.filename);
-                const ruleId = diagnostic.code ?? "ruff";
-                const codeAnchor = readSourceAnchor(input.repositoryPath, relativePath, diagnostic.location.row) || diagnostic.message;
-                return {
-                    ruleId,
-                    severity: "P3",
-                    title: diagnostic.message.split("\n")[0] ?? ruleId,
-                    body: diagnostic.message,
-                    path: relativePath,
-                    line: diagnostic.location.row,
-                    codeAnchor,
-                    source: ruff_SOURCE,
-                    scopeKey: `${ruff_SOURCE}:${ruleId}:${relativePath}`
-                };
-            });
-            const completedScopes = input.changedPaths.map((path) => `${ruff_SOURCE}:${path}`);
-            return { findings, completedScopes };
-        }
-    };
-}
-
-;// CONCATENATED MODULE: ./src/integrations/analyzers/semgrep.ts
-
-const semgrep_SOURCE = "semgrep";
-function semgrep_mapSeverity(raw) {
-    switch ((raw ?? "").toUpperCase()) {
-        case "ERROR":
-            return "P0";
-        case "WARNING":
-            return "P1";
-        default:
-            return "P3";
-    }
-}
-/**
- * Semgrep adapter: runs `semgrep --json --config auto <changedPaths...>` and
- * converts each result entry into a `FindingDraft`. Only changed paths
- * selected by the core are passed on the command line, via a fixed argument
- * array (never a shell string).
- *
- * Semgrep exits 0 when clean and 1 when findings were reported; both are
- * successful runs. Any other exit code, a timeout, or unparsable output is
- * treated as a failure by throwing, so the caller never closes existing
- * findings based on a run that didn't complete.
- */
-function createSemgrepAnalyzer(processRunner) {
-    return {
-        name: semgrep_SOURCE,
-        async run(input) {
-            if (input.changedPaths.length === 0) {
-                return { findings: [], completedScopes: [] };
-            }
-            const result = await processRunner({
-                command: "semgrep",
-                args: ["--json", "--config", "auto", ...input.changedPaths],
-                cwd: input.repositoryPath,
-                timeoutMs: input.timeoutMs,
-                maxOutputBytes: input.maxOutputBytes
-            });
-            if (result.timedOut) {
-                throw new Error("semgrep timed out");
-            }
-            if (result.exitCode !== 0 && result.exitCode !== 1) {
-                throw new Error(`semgrep exited with code ${String(result.exitCode)}: ${result.stderr}`);
-            }
-            let parsed;
-            try {
-                parsed = JSON.parse(result.stdout);
-            }
-            catch (error) {
-                throw new Error(`semgrep produced invalid JSON output: ${String(error)}`);
-            }
-            const findings = parsed.results.map((item) => {
-                const relativePath = toRelativePath(input.repositoryPath, item.path);
-                const endLine = item.end?.line ?? item.start.line;
-                const sourceAnchor = readSourceAnchor(input.repositoryPath, relativePath, item.start.line, endLine);
-                const reportedAnchor = item.extra.lines.trim();
-                // Keep a location-specific fallback when the source file is
-                // unavailable, so multiple findings with the same broken Semgrep
-                // `lines` value cannot collapse into one fingerprint.
-                const codeAnchor = sourceAnchor ?? `${reportedAnchor}\n@line:${String(item.start.line)}`;
-                return {
-                    ruleId: item.check_id,
-                    severity: semgrep_mapSeverity(item.extra.severity),
-                    title: item.extra.message.split("\n")[0] ?? item.check_id,
-                    body: item.extra.message,
-                    path: relativePath,
-                    line: item.start.line,
-                    codeAnchor,
-                    source: semgrep_SOURCE,
-                    scopeKey: `${semgrep_SOURCE}:${item.check_id}:${relativePath}`
-                };
-            });
-            const completedScopes = input.changedPaths.map((path) => `${semgrep_SOURCE}:${path}`);
-            return { findings, completedScopes };
-        }
-    };
-}
-
-;// CONCATENATED MODULE: ./src/integrations/analyzers/registry.ts
-
-
-
-
-/**
- * Explicit, closed registry of the only analyzer executables this codebase
- * will ever invoke. Every adapter factory takes a ProcessRunner and is keyed
- * by its own fixed name.
- */
-const analyzerRegistry = {
-    semgrep: createSemgrepAnalyzer,
-    eslint: createEslintAnalyzer,
-    ruff: createRuffAnalyzer,
-    "golangci-lint": createGolangciLintAnalyzer
-};
-/**
- * Constructs an analyzer provider from the closed registry. Unknown names
- * cannot become executable commands.
- */
-function createAnalyzerProvider(name, processRunner) {
-    if (!Object.prototype.hasOwnProperty.call(analyzerRegistry, name)) {
-        throw new Error(`unknown analyzer: ${name}`);
-    }
-    const factory = analyzerRegistry[name];
-    return factory(processRunner);
-}
-
-;// CONCATENATED MODULE: external "node:child_process"
-const external_node_child_process_namespaceObject = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("node:child_process");
-;// CONCATENATED MODULE: ./src/integrations/analyzers/process.ts
-
-/**
- * Runs a fixed executable with a fixed argument array. Always uses `spawn`
- * with an argument array (`shell: false`) so no part of the command line is
- * ever interpreted by a shell: this is the command-injection guardrail for
- * every analyzer adapter built on top of this runner.
- *
- * Enforces `timeoutMs` by killing the child process, and caps captured
- * stdout/stderr at `maxOutputBytes` each by dropping bytes beyond the cap
- * rather than buffering them, so a runaway analyzer cannot exhaust memory.
- */
-const runAnalyzerProcess = (input) => {
-    return new Promise((resolve, reject) => {
-        const child = (0,external_node_child_process_namespaceObject.spawn)(input.command, input.args, {
-            cwd: input.cwd,
-            shell: false,
-            stdio: ["ignore", "pipe", "pipe"]
-        });
-        let stdout = "";
-        let stderr = "";
-        let stdoutBytes = 0;
-        let stderrBytes = 0;
-        let timedOut = false;
-        let settled = false;
-        const timer = setTimeout(() => {
-            timedOut = true;
-            child.kill("SIGKILL");
-        }, input.timeoutMs);
-        const capture = (chunk, currentBytes, appendTo) => {
-            if (currentBytes >= input.maxOutputBytes) {
-                return currentBytes;
-            }
-            const remaining = input.maxOutputBytes - currentBytes;
-            const slice = chunk.subarray(0, remaining);
-            appendTo(slice.toString("utf8"));
-            return currentBytes + slice.length;
-        };
-        child.stdout?.on("data", (chunk) => {
-            stdoutBytes = capture(chunk, stdoutBytes, (text) => {
-                stdout += text;
-            });
-        });
-        child.stderr?.on("data", (chunk) => {
-            stderrBytes = capture(chunk, stderrBytes, (text) => {
-                stderr += text;
-            });
-        });
-        child.on("error", (error) => {
-            if (settled) {
-                return;
-            }
-            settled = true;
-            clearTimeout(timer);
-            reject(error);
-        });
-        child.on("close", (exitCode) => {
-            if (settled) {
-                return;
-            }
-            settled = true;
-            clearTimeout(timer);
-            resolve({ exitCode, stdout, stderr, timedOut });
-        });
-    });
-};
 
 ;// CONCATENATED MODULE: ./src/review/domain/reconciliation/markers.ts
 
@@ -53992,7 +53573,7 @@ function computeFingerprint(draft) {
         .digest("hex");
 }
 /**
- * Providers can report the same logical finding more than once. Keep the
+ * The LLM can report the same logical finding more than once. Keep the
  * first normalized finding for a fingerprint so one review run cannot create
  * duplicate inline comments or summary rows.
  */
@@ -54033,11 +53614,11 @@ function matchExistingFinding(finding, existing, fallbackFingerprints) {
 ;// CONCATENATED MODULE: ./src/review/domain/reconciliation/reconcile.ts
 
 /**
- * Formats the provider-completeness scope key for a finding's source/path
+ * Formats the LLM-completeness scope key for a finding's source/path
  * pair. Deliberately distinct from `Finding.scopeKey` (which also carries
  * `ruleId`, for fingerprinting): completeness is tracked per file per
- * provider, not per rule, since a provider either finished reviewing a file
- * or it didn't.
+ * review, not per rule, since the LLM either finished reviewing a file or it
+ * didn't.
  */
 function providerScope(source, path) {
     return `${source}:${path}`;
@@ -54125,7 +53706,7 @@ function rowFromExisting(existing, state) {
  * - A current finding matching a developer-resolved thread stays dismissed
  *   and is never reopened.
  * - An existing finding missing from the current run is marked `fixed` only
- *   when its provider/path scope fully completed this run and its location was
+ *   when its LLM/path scope fully completed this run and its location was
  *   included in the incremental diff; otherwise it is left untouched so a
  *   commit-level review cannot close an unreviewed finding.
  *
@@ -67570,7 +67151,7 @@ const OUTPUT_LABELS = {
         states: { open: "🔴 open", fixed: "✅ fixed", dismissed: "⚪ dismissed" },
         checkRun: {
             failedTitle: "Vetter review failed",
-            failedSummary: "One or more review providers failed to complete. No findings were closed for the affected scope.",
+            failedSummary: "The LLM review failed to complete. No findings were closed for the affected scope.",
             openFindings: "Open findings",
             blocksMerge: "blocks merge",
             yes: "true",
@@ -67587,7 +67168,7 @@ const OUTPUT_LABELS = {
         states: { open: "🔴 待处理", fixed: "✅ 已修复", dismissed: "⚪ 已忽略" },
         checkRun: {
             failedTitle: "Vetter 审查失败",
-            failedSummary: "一个或多个审查提供方未能完成。受影响范围内的问题未被关闭。",
+            failedSummary: "LLM 审查未能完成。受影响范围内的问题未被关闭。",
             openFindings: "未解决问题",
             blocksMerge: "阻止合并",
             yes: "是",
@@ -67604,7 +67185,7 @@ const OUTPUT_LABELS = {
         states: { open: "🔴 未対応", fixed: "✅ 修正済み", dismissed: "⚪ 無視済み" },
         checkRun: {
             failedTitle: "Vetter レビューに失敗しました",
-            failedSummary: "1つ以上のレビュー provider が完了しませんでした。対象範囲の問題はクローズされていません。",
+            failedSummary: "LLM レビューが完了しませんでした。対象範囲の問題はクローズされていません。",
             openFindings: "未解決の問題",
             blocksMerge: "マージをブロック",
             yes: "はい",
@@ -67621,7 +67202,7 @@ const OUTPUT_LABELS = {
         states: { open: "🔴 미해결", fixed: "✅ 수정됨", dismissed: "⚪ 무시됨" },
         checkRun: {
             failedTitle: "Vetter 리뷰 실패",
-            failedSummary: "하나 이상의 리뷰 제공자가 완료되지 않았습니다. 해당 범위의 문제는 종료되지 않았습니다.",
+            failedSummary: "LLM 리뷰가 완료되지 않았습니다. 해당 범위의 문제는 종료되지 않았습니다.",
             openFindings: "미해결 문제",
             blocksMerge: "병합 차단",
             yes: "예",
@@ -67638,7 +67219,7 @@ const OUTPUT_LABELS = {
         states: { open: "🔴 abierto", fixed: "✅ corregido", dismissed: "⚪ ignorado" },
         checkRun: {
             failedTitle: "La revisión de Vetter falló",
-            failedSummary: "Uno o más proveedores de revisión no terminaron. No se cerraron problemas en el alcance afectado.",
+            failedSummary: "La revisión LLM no terminó. No se cerraron problemas en el alcance afectado.",
             openFindings: "Problemas abiertos",
             blocksMerge: "bloquea la fusión",
             yes: "sí",
@@ -67655,7 +67236,7 @@ const OUTPUT_LABELS = {
         states: { open: "🔴 ouvert", fixed: "✅ corrigé", dismissed: "⚪ ignoré" },
         checkRun: {
             failedTitle: "La revue Vetter a échoué",
-            failedSummary: "Un ou plusieurs fournisseurs de revue n'ont pas terminé. Aucun problème n'a été fermé pour la portée concernée.",
+            failedSummary: "La revue LLM n'a pas terminé. Aucun problème n'a été fermé pour la portée concernée.",
             openFindings: "Problèmes ouverts",
             blocksMerge: "bloque la fusion",
             yes: "oui",
@@ -67672,7 +67253,7 @@ const OUTPUT_LABELS = {
         states: { open: "🔴 offen", fixed: "✅ behoben", dismissed: "⚪ ignoriert" },
         checkRun: {
             failedTitle: "Vetter-Review fehlgeschlagen",
-            failedSummary: "Mindestens ein Review-Anbieter wurde nicht abgeschlossen. Für den betroffenen Bereich wurden keine Probleme geschlossen.",
+            failedSummary: "Die LLM-Überprüfung wurde nicht abgeschlossen. Für den betroffenen Bereich wurden keine Probleme geschlossen.",
             openFindings: "Offene Probleme",
             blocksMerge: "blockiert den Merge",
             yes: "ja",
@@ -67958,9 +67539,9 @@ function normalizeFinding(draft) {
 
 
 /**
- * A provider failure always fails the Check Run: since `reconcileFindings`
- * never closes findings for an incomplete scope, a `success` conclusion
- * must mean every configured provider actually finished.
+ * An LLM failure always fails the Check Run: since `reconcileFindings` never
+ * closes findings for an incomplete scope, a `success` conclusion means the
+ * configured LLM review finished.
  */
 function evaluateCheckRun(input) {
     const labels = getReviewOutputLabels(input.language);
@@ -68013,7 +67594,7 @@ function relocateExistingFindings(input) {
         const anchoredBaseLine = finding.codeAnchor && baseContent !== null && baseContent !== undefined
             ? findCodeAnchorLine(baseContent, finding.codeAnchor, finding.line)
             : null;
-        // GitHub's originalLine is still useful when an older provider emitted an
+        // GitHub's originalLine is still useful when an older Vetter version emitted an
         // invalid or stale anchor. It lets the diff prove that the old finding was
         // reviewed instead of leaving the thread open forever.
         const baseLine = anchoredBaseLine ?? finding.line;
@@ -68372,8 +67953,8 @@ async function recreateSummaryComment(input) {
 /**
  * Refreshes the summary and Check Run from the persisted GitHub state only.
  * Review-thread webhook deliveries use this path because resolving a thread
- * does not change the code being reviewed and does not require providers to
- * run again.
+ * does not change the code being reviewed and does not require the LLM to run
+ * again.
  */
 async function syncReviewSummary(input) {
     const { gateway, context, config, botLogins, signal } = input;
@@ -68438,17 +68019,16 @@ async function syncReviewSummary(input) {
     return { status: "completed", conclusion: evaluation.conclusion, rows };
 }
 /**
- * Orchestrates one review run end to end: loads the diff and provider
- * findings, guards against a stale head SHA, reconciles against existing
+ * Orchestrates one review run end to end: loads the diff and LLM findings,
+ * guards against a stale head SHA, reconciles against existing
  * GitHub state, and applies the resulting mutations (review comments, thread
  * resolve/reopen, summary comment, Check Run) through the gateway.
  *
- * Providers run concurrently via `Promise.allSettled`; a failed provider
- * contributes no findings and no completed scope, so `reconcileFindings`
- * never closes a finding in the scope it was responsible for.
+ * A failed LLM review contributes no findings and no completed scope, so
+ * `reconcileFindings` never closes findings in an unverified scope.
  */
 async function runReview(input) {
-    const { gateway, context, config, modelProvider, analyzerProviders, botLogins, repositoryPath, contextFiles, signal, isRunActive } = input;
+    const { gateway, context, config, modelProvider, botLogins, contextFiles, signal, isRunActive } = input;
     const pullRequestRef = toPullRequestRef(context);
     if (context.source === "pull_request_review_thread") {
         return syncReviewSummary({
@@ -68464,58 +68044,29 @@ async function runReview(input) {
         baseSha: context.reviewBaseSha ?? context.baseSha,
         headSha: context.headSha
     });
-    const changedPaths = changedFileEntries.map((file) => file.path);
     const reviewPatches = changedFileEntries.map(toSyntheticPatch).filter((patch) => patch.length > 0);
     const parsedDiff = parseChangedFiles(reviewPatches);
     const reviewDiff = reviewPatches.join("\n");
-    const tasks = [];
-    if (config.review.enabled) {
-        tasks.push({
-            name: "llm",
-            run: async () => {
-                const result = await modelProvider.review({
-                    diff: reviewDiff,
-                    contextFiles,
-                    model: config.review.model,
-                    language: config.review.language
-                });
-                return { findings: result.findings, scopeKeys: result.scopeKeys };
-            }
-        });
-    }
-    for (const analyzer of analyzerProviders) {
-        tasks.push({
-            name: analyzer.name,
-            run: async () => {
-                const result = await analyzer.run({
-                    repositoryPath,
-                    changedPaths,
-                    timeoutMs: config.limits.analyzerTimeoutMs,
-                    maxOutputBytes: config.limits.maxAnalyzerOutputBytes
-                });
-                return { findings: result.findings, scopeKeys: result.completedScopes };
-            }
-        });
-    }
-    const settled = await Promise.allSettled(tasks.map((task) => task.run()));
     const drafts = [];
     const completeScopes = new Set();
     const failures = [];
-    settled.forEach((result, index) => {
-        const task = tasks[index];
-        if (!task) {
-            return;
-        }
-        if (result.status === "fulfilled") {
-            drafts.push(...result.value.findings);
-            for (const scopeKey of result.value.scopeKeys) {
+    if (config.review.enabled) {
+        try {
+            const result = await modelProvider.review({
+                diff: reviewDiff,
+                contextFiles,
+                model: config.review.model,
+                language: config.review.language
+            });
+            drafts.push(...result.findings);
+            for (const scopeKey of result.scopeKeys) {
                 completeScopes.add(scopeKey);
             }
         }
-        else {
-            failures.push({ provider: task.name, message: String(result.reason) });
+        catch (error) {
+            failures.push({ provider: "llm", message: String(error) });
         }
-    });
+    }
     const currentFindings = deduplicateFindings(drafts.map((draft) => normalizeFinding(draft)));
     if (signal?.aborted || (isRunActive && !(await isRunActive()))) {
         return { status: "aborted" };
@@ -68756,8 +68307,6 @@ async function normalizeActionEvent(input) {
 
 
 
-
-
 const BOT_LOGIN = "github-actions[bot]";
 function resolveConfigRef(eventName, payload, sha) {
     if (eventName === "pull_request") {
@@ -68813,16 +68362,13 @@ async function run() {
         maxRetries: config.limits.modelRetries,
         ...(modelBaseUrl ? { baseURL: modelBaseUrl } : {})
     });
-    const analyzerProviders = config.analyzers.map((name) => createAnalyzerProvider(name, runAnalyzerProcess));
     for (const context of contexts) {
         const result = await runReview({
             gateway,
             context,
             config,
             modelProvider,
-            analyzerProviders,
             botLogins: new Set([BOT_LOGIN]),
-            repositoryPath: process.env.GITHUB_WORKSPACE ?? process.cwd(),
             contextFiles: [],
             isRunActive: async () => {
                 try {

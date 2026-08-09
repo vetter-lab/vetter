@@ -46,8 +46,7 @@ deployment platform) and fill in:
 The server never uses a long-lived personal access token. On each webhook
 delivery, it reads the installation ID from the payload and mints a
 short-lived installation access token via `@octokit/auth-app`. That token is
-used only for the duration of the review (including the temporary shallow
-git checkout used by static analyzers) and is discarded afterward.
+used only for the duration of the review and is discarded afterward.
 
 ## 4. Health check
 

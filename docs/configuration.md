@@ -48,13 +48,8 @@ severity:
   P3:
     blockMerge: false
 
-analyzers:
-  - semgrep
-
 limits:
   modelRetries: 2
-  analyzerTimeoutMs: 30000
-  maxAnalyzerOutputBytes: 1000000
 ```
 
 ## Keys
@@ -111,26 +106,12 @@ use `critical`, `major`, and `minor`. They are translated to `P0`, `P1`, and
 provided in the same layer, the canonical key wins. New configuration should
 use the uppercase P0-P3 keys; `version: 1` remains valid.
 
-### `analyzers`
-
-Array of analyzer names to run, drawn from a fixed allowlist:
-`semgrep`, `eslint`, `ruff`, `golangci-lint`. Any other value is rejected
-outright (`loadConfig` throws) — this list can never be used to invoke an
-arbitrary command; analyzer adapters are a closed registry
-(`src/providers/analyzer.ts`), not a lookup keyed by this string alone.
-
-The example defaults to `semgrep` because it ships its own rules and does
-not require repository-local lint configuration. ESLint should only be added
-for repositories that already have a valid ESLint configuration and have the
-`eslint` executable available in the runtime.
-
 ### `limits`
 
 | Key | Type | Default | Notes |
 | --- | --- | --- | --- |
 | `modelRetries` | integer 0–3 | `2` | Additional attempts after the first, on malformed model output or transient errors. |
-| `analyzerTimeoutMs` | positive integer | `30000` | Per-analyzer-invocation wall-clock timeout; the process is killed on expiry. |
-| `maxAnalyzerOutputBytes` | positive integer | `1000000` | Per-stream (stdout/stderr) cap; excess bytes are dropped, not buffered. |
+
 
 ## Secret restriction
 

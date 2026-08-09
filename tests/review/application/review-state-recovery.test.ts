@@ -106,9 +106,7 @@ it("preserves summary state when a cancelled run omitted old threads from its sn
     },
     config: loadConfig({ runtime: "action" }),
     modelProvider,
-    analyzerProviders: [],
     botLogins: new Set(["github-actions[bot]"]),
-    repositoryPath: "/tmp/repository",
     contextFiles: []
   });
 

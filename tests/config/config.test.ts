@@ -81,12 +81,4 @@ describe("loadConfig", () => {
       })
     ).toThrowError(/requireOpenPullRequest/);
   });
-
-  it("rejects an analyzer that is not in the allowlist", () => {
-    expect(() =>
-      loadConfig({
-        repositoryText: "analyzers:\n  - arbitrary-shell\n"
-      })
-    ).toThrowError(/analyzer/);
-  });
 });

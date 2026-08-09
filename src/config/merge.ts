@@ -6,7 +6,7 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
  * Deep-merges plain objects left to right: later sources win. Arrays and
  * other non-object values are replaced wholesale rather than concatenated,
  * so a repository or external override can fully redefine a list such as
- * `analyzers` or `branchPatterns`.
+ * `branchPatterns`.
  */
 export function deepMerge(...sources: unknown[]): unknown {
   return sources.reduce((accumulator, source) => mergeTwo(accumulator, source), {} as unknown);

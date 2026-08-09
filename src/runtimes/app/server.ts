@@ -5,15 +5,12 @@ import type { Octokit } from "octokit";
 import { loadConfig } from "../../config/load.js";
 import { deepMerge } from "../../config/merge.js";
 import type { ReviewConfig } from "../../config/schema.js";
-import { createAnalyzerProvider } from "../../integrations/analyzers/registry.js";
-import { runAnalyzerProcess } from "../../integrations/analyzers/process.js";
 import { createInstallationClient } from "../../integrations/github/auth.js";
 import type { GitHubGateway } from "../../integrations/github/gateway.js";
 import { createOctokitGateway } from "../../integrations/github/octokit-gateway.js";
 import { createOpenAiCompatibleModelProvider } from "../../integrations/models/openai-compatible.js";
 import { runReview, syncReviewSummary } from "../../review/application/run-review.js";
 import type { ReviewContext } from "../../review/domain/types.js";
-import { checkoutPullRequest } from "./checkout.js";
 import { normalizeWebhookEvent } from "./events.js";
 import { createScheduler } from "./scheduler.js";
 
@@ -71,48 +68,31 @@ async function runContextReview(input: {
   context: ReviewContext;
   config: ReviewConfig;
   gateway: GitHubGateway;
-  octokit: Octokit;
   botLogin: string;
   signal: AbortSignal;
 }): Promise<void> {
-  const { context, config, gateway, octokit, botLogin, signal } = input;
+  const { context, config, gateway, botLogin, signal } = input;
 
   if (context.source === "pull_request_review_thread") {
     await syncReviewSummary({ gateway, context, config, botLogins: new Set([botLogin]), signal });
     return;
   }
 
-  const installationAuth = (await octokit.auth({ type: "installation" })) as { token: string };
-  const checkout = await checkoutPullRequest({
-    owner: context.repository.owner,
-    repo: context.repository.name,
-    headSha: context.headSha,
-    token: installationAuth.token
+  const modelProvider = createOpenAiCompatibleModelProvider({
+    apiKey: VETTER_MODEL_API_KEY,
+    maxRetries: config.limits.modelRetries,
+    ...(VETTER_MODEL_BASE_URL ? { baseURL: VETTER_MODEL_BASE_URL } : {})
   });
 
-  try {
-    const modelProvider = createOpenAiCompatibleModelProvider({
-      apiKey: VETTER_MODEL_API_KEY,
-      maxRetries: config.limits.modelRetries,
-      ...(VETTER_MODEL_BASE_URL ? { baseURL: VETTER_MODEL_BASE_URL } : {})
-    });
-
-    const analyzerProviders = config.analyzers.map((name) => createAnalyzerProvider(name, runAnalyzerProcess));
-
-    await runReview({
-      gateway,
-      context,
-      config,
-      modelProvider,
-      analyzerProviders,
-      botLogins: new Set([botLogin]),
-      repositoryPath: checkout.path,
-      contextFiles: [],
-      signal
-    });
-  } finally {
-    await checkout.cleanup();
-  }
+  await runReview({
+    gateway,
+    context,
+    config,
+    modelProvider,
+    botLogins: new Set([botLogin]),
+    contextFiles: [],
+    signal
+  });
 }
 
 async function main(): Promise<void> {
@@ -214,7 +194,7 @@ async function main(): Promise<void> {
       for (const context of contexts) {
         scheduler.enqueue({
           key: `${context.repository.owner}/${context.repository.name}#${String(context.pullRequestNumber)}`,
-          run: (signal) => runContextReview({ context, config, gateway, octokit, botLogin, signal })
+          run: (signal) => runContextReview({ context, config, gateway, botLogin, signal })
         });
       }
 

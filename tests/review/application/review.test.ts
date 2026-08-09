@@ -76,9 +76,7 @@ test("passes file headers and paths to the model provider", async () => {
       runtime: "action"
     }),
     modelProvider,
-    analyzerProviders: [],
     botLogins: new Set(["github-actions[bot]"]),
-    repositoryPath: "/tmp/repository",
     contextFiles: []
   });
 
@@ -167,9 +165,7 @@ test("does not create duplicate inline comments for duplicate findings", async (
     },
     config: loadConfig({ runtime: "action" }),
     modelProvider,
-    analyzerProviders: [],
     botLogins: new Set(["github-actions[bot]"]),
-    repositoryPath: "/tmp/repository",
     contextFiles: []
   });
 
@@ -253,9 +249,7 @@ test("links summary file locations to the pull request changes page", async () =
     },
     config: loadConfig({ runtime: "action" }),
     modelProvider,
-    analyzerProviders: [],
     botLogins: new Set(["github-actions[bot]"]),
-    repositoryPath: "/tmp/repository",
     contextFiles: []
   });
 

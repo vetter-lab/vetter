@@ -33,11 +33,6 @@ jobs:
   review:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Install semgrep
-        run: pip install semgrep
       - uses: vetter-lab/vetter@main
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -50,7 +45,7 @@ jobs:
 
 The workflow's `permissions` block must grant:
 
-- `contents: read` — to check out the repository for static analyzers.
+- `contents: read` — to read the repository diff and `.vetter.yml`.
 - `actions: read` — to let cancelled duplicate workflow runs stop before they write comments.
 - `pull-requests: write` — to create/update inline review comments, resolve
   and reopen review threads, and post the summary comment.
@@ -92,40 +87,17 @@ events because GitHub Actions does not support that trigger. Resolving or
 reopening a review thread is only detected on the next `synchronize` or
 `push` event that triggers a review. The App runtime handles
 `pull_request_review_thread` events separately and refreshes the summary
-without rerunning providers.
+without rerunning the LLM.
 
-## 5. Analyzer prerequisites
-
-`actions/checkout@v4` must run before the Vetter step so that any
-configured static analyzers have real files on disk to scan — the Action
-runtime reads analyzer input from `GITHUB_WORKSPACE`, unlike the App
-runtime, which does an ephemeral shallow clone per review. `fetch-depth: 0`
-is recommended so incremental diffing has full history available if a future
-analyzer needs it; a shallow checkout also works if you're only running
-semgrep.
-
-The default example enables `semgrep`, so the workflow installs it before
-the Vetter step with `pip install semgrep`. Other analyzers must be installed
-the same way before the Vetter step if they are enabled in `.vetter.yml`:
-
-- `semgrep` — `pip install semgrep`
-- `eslint` — install with the repository's package manager, and require the
-  repository to have an ESLint configuration file
-- `ruff` — `pip install ruff`
-- `golangci-lint` — install the `golangci-lint` binary
-
-Semgrep is a good default because it ships its own rule set and does not
-depend on repository-local lint configuration.
-
-## 6. Push events with no open PR
+## 5. Push events with no open PR
 
 The workflow's `on: push` trigger runs on every push, including pushes to
 branches with no open pull request. The Action entrypoint detects this case,
-logs an informational message, and exits successfully without calling any
-provider or writing anything to GitHub — it never fails the job for a push
+logs an informational message, and exits successfully without calling the
+LLM or writing anything to GitHub — it never fails the job for a push
 that isn't tied to a PR.
 
-## 7. Action mode does not require a GitHub App
+## 6. Action mode does not require a GitHub App
 
 The Action runtime authenticates entirely through the workflow's own token
 (`github-token`). No GitHub App installation, webhook secret, or `.env` file

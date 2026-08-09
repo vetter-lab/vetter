@@ -135,9 +135,7 @@ it("refreshes manual dismissal and fixes an outdated finding in one commit run",
         return { findings: [manual], scopeKeys: ["llm:src/example.ts"] };
       }
     },
-    analyzerProviders: [],
     botLogins: new Set(["github-actions[bot]"]),
-    repositoryPath: "/tmp/repository",
     contextFiles: []
   });
 
@@ -245,9 +243,7 @@ it("relocates an unchanged finding after an unrelated insertion without closing 
         return { findings: [], scopeKeys: ["llm:src/example.ts"] };
       }
     },
-    analyzerProviders: [],
     botLogins: new Set(["github-actions[bot]"]),
-    repositoryPath: "/tmp/repository",
     contextFiles: []
   });
 

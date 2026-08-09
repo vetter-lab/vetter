@@ -1,5 +1,9 @@
 # Source Structure and Prompt Maintenance Implementation Plan
 
+> Status: superseded. This historical implementation plan predates the
+> LLM-only review pipeline and must not be used to reintroduce analyzer
+> integrations.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Reorganize `src` around review domain, application orchestration, external integrations, and runtimes while preserving behavior and making review prompts independently maintainable.

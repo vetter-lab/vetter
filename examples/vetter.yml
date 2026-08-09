@@ -24,10 +24,5 @@ severity:
   P3:
     blockMerge: false
 
-analyzers:
-  - semgrep
-
 limits:
   modelRetries: 2
-  analyzerTimeoutMs: 30000
-  maxAnalyzerOutputBytes: 1000000

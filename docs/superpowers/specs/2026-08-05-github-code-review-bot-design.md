@@ -1,5 +1,9 @@
 # Vetter GitHub Code Review Bot Design
 
+> Status: superseded. This historical design predates the LLM-only review
+> pipeline; its static-analyzer sections are no longer part of Vetter's
+> implementation.
+
 - Date: 2026-08-05
 - Status: Design approved in brainstorming; pending implementation planning
 - Scope: GitHub App and GitHub Action execution modes for one shared review core

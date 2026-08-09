@@ -1,6 +1,6 @@
 # vetter
 
-Vetter is a stateless GitHub code review bot. It combines an external LLM with allowlisted static analyzers (Semgrep, ESLint, ruff, golangci-lint), posts inline review comments, maintains one summary comment per pull request, and publishes a `vetter / code-review` Check Run.
+Vetter is a stateless GitHub code review bot. It uses an external LLM to review pull requests, posts inline review comments, maintains one summary comment per pull request, and publishes a `vetter / code-review` Check Run.
 
 Vetter runs as either a **GitHub App** (webhook-driven) or a **GitHub Action** (workflow-driven) per repository. Both modes share the same TypeScript review core and never store review state outside GitHub itself — GitHub comments and review threads are the only persisted state, so there is no database to run or migrate.
 
@@ -9,7 +9,7 @@ Vetter runs as either a **GitHub App** (webhook-driven) or a **GitHub Action** (
 1. A pull request event or a push to a branch with an open PR triggers a review;
    resolving or reopening a review thread refreshes the summary from GitHub state.
 2. Vetter loads `.vetter.yml` from the repository, merges it with built-in defaults and any runtime-level overrides.
-3. It fetches the incremental diff, runs the configured LLM and static analyzers concurrently, and normalizes the results into findings.
+3. It fetches the incremental diff, sends it to the configured LLM, and normalizes the returned findings.
 4. It re-reads the PR head SHA immediately before mutating anything; a stale or superseded run is discarded (latest-wins).
 5. It reconciles findings against existing Vetter-owned comments and threads: new findings get inline comments, fixed findings get their thread resolved, findings resolved by a human stay dismissed.
 6. It rebuilds the summary comment and updates the Check Run conclusion.
