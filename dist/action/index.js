@@ -53455,33 +53455,30 @@ function loadConfig(input) {
 const external_node_fs_namespaceObject = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("node:fs");
 ;// CONCATENATED MODULE: external "node:path"
 const external_node_path_namespaceObject = __WEBPACK_EXTERNAL_createRequire(import.meta.url)("node:path");
-;// CONCATENATED MODULE: ./src/integrations/analyzers/eslint.ts
+;// CONCATENATED MODULE: ./src/integrations/analyzers/source-anchor.ts
 
+
+function toRelativePath(repositoryPath, rawPath) {
+    return (0,external_node_path_namespaceObject.isAbsolute)(rawPath) ? (0,external_node_path_namespaceObject.relative)(repositoryPath, rawPath) : rawPath;
+}
+/** Reads a source range from the checkout for use as a finding anchor. */
+function readSourceAnchor(repositoryPath, rawPath, startLine, endLine = startLine) {
+    try {
+        const relativePath = toRelativePath(repositoryPath, rawPath);
+        const content = (0,external_node_fs_namespaceObject.readFileSync)((0,external_node_path_namespaceObject.join)(repositoryPath, relativePath), "utf8");
+        const source = content.split("\n").slice(startLine - 1, endLine).join("\n").trim();
+        return source.length > 0 ? source : null;
+    }
+    catch {
+        return null;
+    }
+}
+
+;// CONCATENATED MODULE: ./src/integrations/analyzers/eslint.ts
 
 const SOURCE = "eslint";
 function mapSeverity(severity) {
     return severity >= 2 ? "P1" : "P3";
-}
-function toRelativePath(repositoryPath, rawPath) {
-    return (0,external_node_path_namespaceObject.isAbsolute)(rawPath) ? (0,external_node_path_namespaceObject.relative)(repositoryPath, rawPath) : rawPath;
-}
-/**
- * Best-effort code anchor: reads the reported line directly from the
- * repository checkout. ESLint's JSON formatter does not echo source text,
- * so this reads it ourselves; failures (missing file, out-of-range line)
- * fall back to an empty string so callers can substitute the diagnostic
- * message instead.
- */
-function readLine(repositoryPath, relativePath, line) {
-    try {
-        const absolutePath = (0,external_node_path_namespaceObject.isAbsolute)(relativePath) ? relativePath : (0,external_node_path_namespaceObject.join)(repositoryPath, relativePath);
-        const content = (0,external_node_fs_namespaceObject.readFileSync)(absolutePath, "utf8");
-        const lines = content.split("\n");
-        return (lines[line - 1] ?? "").trim();
-    }
-    catch {
-        return "";
-    }
 }
 /**
  * ESLint adapter: runs `eslint --format json <changedPaths...>` and converts
@@ -53527,7 +53524,7 @@ function createEslintAnalyzer(processRunner) {
                 const relativePath = toRelativePath(input.repositoryPath, fileResult.filePath);
                 for (const message of fileResult.messages) {
                     const ruleId = message.ruleId ?? "eslint";
-                    const codeAnchor = readLine(input.repositoryPath, relativePath, message.line) || message.message;
+                    const codeAnchor = readSourceAnchor(input.repositoryPath, relativePath, message.line) || message.message;
                     findings.push({
                         ruleId,
                         severity: mapSeverity(message.severity),
@@ -53550,9 +53547,6 @@ function createEslintAnalyzer(processRunner) {
 ;// CONCATENATED MODULE: ./src/integrations/analyzers/golangci-lint.ts
 
 const golangci_lint_SOURCE = "golangci-lint";
-function golangci_lint_toRelativePath(repositoryPath, rawPath) {
-    return (0,external_node_path_namespaceObject.isAbsolute)(rawPath) ? (0,external_node_path_namespaceObject.relative)(repositoryPath, rawPath) : rawPath;
-}
 function golangci_lint_mapSeverity(raw) {
     switch ((raw ?? "").toLowerCase()) {
         case "error":
@@ -53603,7 +53597,7 @@ function createGolangciLintAnalyzer(processRunner) {
             }
             const issues = parsed.Issues ?? [];
             const findings = issues.map((issue) => {
-                const relativePath = golangci_lint_toRelativePath(input.repositoryPath, issue.Pos.Filename);
+                const relativePath = toRelativePath(input.repositoryPath, issue.Pos.Filename);
                 const ruleId = issue.FromLinter;
                 return {
                     ruleId,
@@ -53625,28 +53619,7 @@ function createGolangciLintAnalyzer(processRunner) {
 
 ;// CONCATENATED MODULE: ./src/integrations/analyzers/ruff.ts
 
-
 const ruff_SOURCE = "ruff";
-function ruff_toRelativePath(repositoryPath, rawPath) {
-    return (0,external_node_path_namespaceObject.isAbsolute)(rawPath) ? (0,external_node_path_namespaceObject.relative)(repositoryPath, rawPath) : rawPath;
-}
-/**
- * Best-effort code anchor: reads the reported line directly from the
- * repository checkout, since Ruff's JSON diagnostics do not include source
- * text. Failures fall back to an empty string so callers can substitute the
- * diagnostic message instead.
- */
-function ruff_readLine(repositoryPath, relativePath, line) {
-    try {
-        const absolutePath = (0,external_node_path_namespaceObject.isAbsolute)(relativePath) ? relativePath : (0,external_node_path_namespaceObject.join)(repositoryPath, relativePath);
-        const content = (0,external_node_fs_namespaceObject.readFileSync)(absolutePath, "utf8");
-        const lines = content.split("\n");
-        return (lines[line - 1] ?? "").trim();
-    }
-    catch {
-        return "";
-    }
-}
 /**
  * Ruff adapter: runs `ruff check --output-format json <changedPaths...>` and
  * converts each diagnostic into a `FindingDraft`. Only changed paths
@@ -53686,9 +53659,9 @@ function createRuffAnalyzer(processRunner) {
                 throw new Error(`ruff produced invalid JSON output: ${String(error)}`);
             }
             const findings = parsed.map((diagnostic) => {
-                const relativePath = ruff_toRelativePath(input.repositoryPath, diagnostic.filename);
+                const relativePath = toRelativePath(input.repositoryPath, diagnostic.filename);
                 const ruleId = diagnostic.code ?? "ruff";
-                const codeAnchor = ruff_readLine(input.repositoryPath, relativePath, diagnostic.location.row) || diagnostic.message;
+                const codeAnchor = readSourceAnchor(input.repositoryPath, relativePath, diagnostic.location.row) || diagnostic.message;
                 return {
                     ruleId,
                     severity: "P3",
@@ -53709,28 +53682,7 @@ function createRuffAnalyzer(processRunner) {
 
 ;// CONCATENATED MODULE: ./src/integrations/analyzers/semgrep.ts
 
-
 const semgrep_SOURCE = "semgrep";
-function semgrep_toRelativePath(repositoryPath, rawPath) {
-    return (0,external_node_path_namespaceObject.isAbsolute)(rawPath) ? (0,external_node_path_namespaceObject.relative)(repositoryPath, rawPath) : rawPath;
-}
-/**
- * Semgrep's JSON `extra.lines` is not reliable for some rules: it can contain
- * a rule fingerprint rather than the matched source. Read the matched source
- * from the checkout so findings at different locations get different
- * identities and can be relocated after a commit.
- */
-function readSourceAnchor(repositoryPath, relativePath, startLine, endLine) {
-    try {
-        const content = (0,external_node_fs_namespaceObject.readFileSync)((0,external_node_path_namespaceObject.join)(repositoryPath, relativePath), "utf8");
-        const lines = content.split("\n");
-        const source = lines.slice(startLine - 1, endLine).join("\n").trim();
-        return source.length > 0 ? source : null;
-    }
-    catch {
-        return null;
-    }
-}
 function semgrep_mapSeverity(raw) {
     switch ((raw ?? "").toUpperCase()) {
         case "ERROR":
@@ -53780,7 +53732,7 @@ function createSemgrepAnalyzer(processRunner) {
                 throw new Error(`semgrep produced invalid JSON output: ${String(error)}`);
             }
             const findings = parsed.results.map((item) => {
-                const relativePath = semgrep_toRelativePath(input.repositoryPath, item.path);
+                const relativePath = toRelativePath(input.repositoryPath, item.path);
                 const endLine = item.end?.line ?? item.start.line;
                 const sourceAnchor = readSourceAnchor(input.repositoryPath, relativePath, item.start.line, endLine);
                 const reportedAnchor = item.extra.lines.trim();

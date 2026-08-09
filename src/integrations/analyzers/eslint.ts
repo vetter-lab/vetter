@@ -1,8 +1,7 @@
-import { readFileSync } from "node:fs";
-import { isAbsolute, join, relative } from "node:path";
 import type { FindingDraft, Severity } from "../../review/domain/types.js";
 import type { AnalyzerProvider, AnalyzerRunInput, AnalyzerRunResult, AnalyzerSource } from "./types.js";
 import type { ProcessRunner } from "./process.js";
+import { readSourceAnchor, toRelativePath } from "./source-anchor.js";
 
 const SOURCE: AnalyzerSource = "eslint";
 
@@ -20,28 +19,6 @@ interface EslintFileResult {
 
 function mapSeverity(severity: number): Severity {
   return severity >= 2 ? "P1" : "P3";
-}
-
-function toRelativePath(repositoryPath: string, rawPath: string): string {
-  return isAbsolute(rawPath) ? relative(repositoryPath, rawPath) : rawPath;
-}
-
-/**
- * Best-effort code anchor: reads the reported line directly from the
- * repository checkout. ESLint's JSON formatter does not echo source text,
- * so this reads it ourselves; failures (missing file, out-of-range line)
- * fall back to an empty string so callers can substitute the diagnostic
- * message instead.
- */
-function readLine(repositoryPath: string, relativePath: string, line: number): string {
-  try {
-    const absolutePath = isAbsolute(relativePath) ? relativePath : join(repositoryPath, relativePath);
-    const content = readFileSync(absolutePath, "utf8");
-    const lines = content.split("\n");
-    return (lines[line - 1] ?? "").trim();
-  } catch {
-    return "";
-  }
 }
 
 /**
@@ -92,7 +69,7 @@ export function createEslintAnalyzer(processRunner: ProcessRunner): AnalyzerProv
         const relativePath = toRelativePath(input.repositoryPath, fileResult.filePath);
         for (const message of fileResult.messages) {
           const ruleId = message.ruleId ?? "eslint";
-          const codeAnchor = readLine(input.repositoryPath, relativePath, message.line) || message.message;
+          const codeAnchor = readSourceAnchor(input.repositoryPath, relativePath, message.line) || message.message;
           findings.push({
             ruleId,
             severity: mapSeverity(message.severity),

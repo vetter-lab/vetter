@@ -1,7 +1,7 @@
-import { isAbsolute, relative } from "node:path";
 import type { FindingDraft, Severity } from "../../review/domain/types.js";
 import type { AnalyzerProvider, AnalyzerRunInput, AnalyzerRunResult, AnalyzerSource } from "./types.js";
 import type { ProcessRunner } from "./process.js";
+import { toRelativePath } from "./source-anchor.js";
 
 const SOURCE: AnalyzerSource = "golangci-lint";
 
@@ -15,10 +15,6 @@ interface GolangciLintIssue {
 
 interface GolangciLintOutput {
   Issues: GolangciLintIssue[];
-}
-
-function toRelativePath(repositoryPath: string, rawPath: string): string {
-  return isAbsolute(rawPath) ? relative(repositoryPath, rawPath) : rawPath;
 }
 
 function mapSeverity(raw: string | undefined): Severity {
