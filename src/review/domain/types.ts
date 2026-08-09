@@ -1,6 +1,6 @@
 export type Severity = "P0" | "P1" | "P2" | "P3";
 export type ReviewSource = "llm" | "semgrep" | "eslint" | "ruff" | "golangci-lint";
-export type FindingState = "open" | "fixed" | "suppressed";
+export type FindingState = "open" | "fixed" | "dismissed";
 
 export interface ReviewContext {
   repository: { owner: string; name: string; fullName: string };

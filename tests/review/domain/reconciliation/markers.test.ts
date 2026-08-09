@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { buildFindingMarker, isFindingComment, parseFindingMarker } from "../../../../src/review/domain/reconciliation/markers.js";
+import {
+  buildFindingMarker,
+  buildSummaryRowMarker,
+  isFindingComment,
+  parseFindingMarker,
+  parseSummaryRowMarkers
+} from "../../../../src/review/domain/reconciliation/markers.js";
 
 const fields = {
   fingerprint: "fp",
@@ -40,5 +46,18 @@ describe("finding markers", () => {
     const marker = buildFindingMarker(fields).replace('severity="P0"', 'severity="blocker"');
     expect(parseFindingMarker(marker)).toBeNull();
     expect(isFindingComment(marker)).toBe(false);
+  });
+
+  it("normalizes legacy suppressed summary rows to dismissed", () => {
+    const marker = buildSummaryRowMarker({
+      fingerprint: "fp",
+      severity: "P1",
+      title: "Title",
+      path: "src/example.ts",
+      line: 12,
+      state: "dismissed"
+    }).replace('state="dismissed"', 'state="suppressed"');
+
+    expect(parseSummaryRowMarkers(marker)[0]?.state).toBe("dismissed");
   });
 });
