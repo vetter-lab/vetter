@@ -47,6 +47,36 @@ it("maps Semgrep ERROR/WARNING/INFO to P0/P1/P3", async () => {
   expect(result.findings.map((finding) => finding.severity)).toEqual(["P0", "P1", "P3"]);
 });
 
+it("uses the matched source line instead of Semgrep's unreliable extra.lines", async () => {
+  const result = await createSemgrepAnalyzer(
+    runner(
+      JSON.stringify({
+        results: [
+          {
+            check_id: "source-anchor",
+            path: "src/integrations/analyzers/semgrep.ts",
+            start: { line: 1 },
+            end: { line: 1 },
+            extra: { message: "message", lines: "requires login", severity: "WARNING" }
+          },
+          {
+            check_id: "source-anchor",
+            path: "src/integrations/analyzers/semgrep.ts",
+            start: { line: 2 },
+            end: { line: 2 },
+            extra: { message: "message", lines: "requires login", severity: "WARNING" }
+          }
+        ]
+      })
+    )
+  ).run(input);
+
+  expect(result.findings[0]?.codeAnchor).toBe(
+    'import { readFileSync } from "node:fs";'
+  );
+  expect(result.findings[1]?.codeAnchor).not.toBe(result.findings[0]?.codeAnchor);
+});
+
 it("maps ESLint 2/1 to P1/P3", async () => {
   const result = await createEslintAnalyzer(
     runner(
