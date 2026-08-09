@@ -71,9 +71,8 @@ it("uses the matched source line instead of Semgrep's unreliable extra.lines", a
     )
   ).run(input);
 
-  expect(result.findings[0]?.codeAnchor).toBe(
-    'import { readFileSync } from "node:fs";'
-  );
+  expect(result.findings[0]?.codeAnchor).toContain("import type");
+  expect(result.findings[0]?.codeAnchor).not.toBe("requires login");
   expect(result.findings[1]?.codeAnchor).not.toBe(result.findings[0]?.codeAnchor);
 });
 

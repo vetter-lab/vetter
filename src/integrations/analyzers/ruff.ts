@@ -1,8 +1,7 @@
-import { readFileSync } from "node:fs";
-import { isAbsolute, join, relative } from "node:path";
 import type { FindingDraft } from "../../review/domain/types.js";
 import type { AnalyzerProvider, AnalyzerRunInput, AnalyzerRunResult, AnalyzerSource } from "./types.js";
 import type { ProcessRunner } from "./process.js";
+import { readSourceAnchor, toRelativePath } from "./source-anchor.js";
 
 const SOURCE: AnalyzerSource = "ruff";
 
@@ -11,27 +10,6 @@ interface RuffDiagnostic {
   message: string;
   filename: string;
   location: { row: number; column: number };
-}
-
-function toRelativePath(repositoryPath: string, rawPath: string): string {
-  return isAbsolute(rawPath) ? relative(repositoryPath, rawPath) : rawPath;
-}
-
-/**
- * Best-effort code anchor: reads the reported line directly from the
- * repository checkout, since Ruff's JSON diagnostics do not include source
- * text. Failures fall back to an empty string so callers can substitute the
- * diagnostic message instead.
- */
-function readLine(repositoryPath: string, relativePath: string, line: number): string {
-  try {
-    const absolutePath = isAbsolute(relativePath) ? relativePath : join(repositoryPath, relativePath);
-    const content = readFileSync(absolutePath, "utf8");
-    const lines = content.split("\n");
-    return (lines[line - 1] ?? "").trim();
-  } catch {
-    return "";
-  }
 }
 
 /**
@@ -80,7 +58,7 @@ export function createRuffAnalyzer(processRunner: ProcessRunner): AnalyzerProvid
         const relativePath = toRelativePath(input.repositoryPath, diagnostic.filename);
         const ruleId = diagnostic.code ?? "ruff";
         const codeAnchor =
-          readLine(input.repositoryPath, relativePath, diagnostic.location.row) || diagnostic.message;
+          readSourceAnchor(input.repositoryPath, relativePath, diagnostic.location.row) || diagnostic.message;
         return {
           ruleId,
           severity: "P3",

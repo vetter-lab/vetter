@@ -1,8 +1,7 @@
-import { readFileSync } from "node:fs";
-import { isAbsolute, join, relative } from "node:path";
 import type { FindingDraft, Severity } from "../../review/domain/types.js";
 import type { AnalyzerProvider, AnalyzerRunInput, AnalyzerRunResult, AnalyzerSource } from "./types.js";
 import type { ProcessRunner } from "./process.js";
+import { readSourceAnchor, toRelativePath } from "./source-anchor.js";
 
 const SOURCE: AnalyzerSource = "semgrep";
 
@@ -16,32 +15,6 @@ interface SemgrepResultItem {
     lines: string;
     severity?: string;
   };
-}
-
-function toRelativePath(repositoryPath: string, rawPath: string): string {
-  return isAbsolute(rawPath) ? relative(repositoryPath, rawPath) : rawPath;
-}
-
-/**
- * Semgrep's JSON `extra.lines` is not reliable for some rules: it can contain
- * a rule fingerprint rather than the matched source. Read the matched source
- * from the checkout so findings at different locations get different
- * identities and can be relocated after a commit.
- */
-function readSourceAnchor(
-  repositoryPath: string,
-  relativePath: string,
-  startLine: number,
-  endLine: number
-): string | null {
-  try {
-    const content = readFileSync(join(repositoryPath, relativePath), "utf8");
-    const lines = content.split("\n");
-    const source = lines.slice(startLine - 1, endLine).join("\n").trim();
-    return source.length > 0 ? source : null;
-  } catch {
-    return null;
-  }
 }
 
 interface SemgrepOutput {
