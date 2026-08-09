@@ -62,6 +62,19 @@ describe("relocateExistingFindings", () => {
     expect(result.reviewedFingerprints).toEqual(new Set(["finding"]));
   });
 
+  it("falls back to the persisted line when an anchor is missing from the base file", () => {
+    const invalidAnchor = { ...existing(2), codeAnchor: "stale provider anchor" };
+    const result = relocateExistingFindings({
+      existing: [invalidAnchor],
+      changedFiles: [changedFile({ addedLines: [2], removedLines: [2] })],
+      baseFiles: new Map([["src/example.ts", "old source\n"]]),
+      currentFiles: new Map([["src/example.ts", "new source\n"]])
+    });
+
+    expect(result.reviewedFingerprints).toEqual(new Set(["finding"]));
+    expect(result.findings[0]?.line).toBe(2);
+  });
+
   it("does not guess when the anchor occurs more than once", () => {
     const result = relocateExistingFindings({
       existing: [existing(2)],

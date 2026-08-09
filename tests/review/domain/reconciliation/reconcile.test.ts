@@ -23,10 +23,16 @@ function existing(input: {
   isResolved: boolean;
   threadId: string;
   commentId: number;
+  ruleId?: string;
+  source?: ExistingFinding["source"];
+  codeAnchor?: string;
 }): ExistingFinding {
   const currentFinding = finding(input.fingerprint);
   return {
     ...currentFinding,
+    ...(input.ruleId !== undefined ? { ruleId: input.ruleId } : {}),
+    ...(input.source !== undefined ? { source: input.source } : {}),
+    ...(input.codeAnchor !== undefined ? { codeAnchor: input.codeAnchor } : {}),
     body: `${currentFinding.title} body`,
     line: currentFinding.line,
     commentId: input.commentId,
@@ -156,6 +162,46 @@ describe("reconcileFindings", () => {
     expect(plan.resolveThreads).toEqual([]);
     expect(plan.rows).toEqual([
       expect.objectContaining({ fingerprint: "untouched", state: "open" })
+    ]);
+  });
+
+  it("resolves the old thread when the same rule reports a different code anchor", () => {
+    const oldFinding = existing({
+      fingerprint: "old-finding",
+      state: "open",
+      isResolved: false,
+      threadId: "old-thread",
+      commentId: 4,
+      ruleId: "mutable-action",
+      source: "semgrep",
+      codeAnchor: "- uses: actions/checkout@v4"
+    });
+    const currentFinding: Finding = {
+      ...finding("current-finding"),
+      ruleId: "mutable-action",
+      source: "semgrep",
+      codeAnchor: "- uses: vetter-lab/vetter@main",
+      scopeKey: "semgrep:mutable-action:src/example.ts"
+    };
+
+    const plan = reconcileFindings({
+      current: [
+        {
+          finding: currentFinding,
+          anchor: { path: currentFinding.path, line: currentFinding.line, side: "RIGHT" }
+        }
+      ],
+      existing: [oldFinding],
+      completeScopes: new Set(["semgrep:src/example.ts"]),
+      reviewedExistingFingerprints: new Set([oldFinding.fingerprint]),
+      botLogins: new Set(["github-actions[bot]"])
+    });
+
+    expect(plan.createInline).toEqual([{ finding: currentFinding, anchor: expect.anything() }]);
+    expect(plan.resolveThreads).toEqual(["old-thread"]);
+    expect(plan.rows).toEqual([
+      expect.objectContaining({ fingerprint: "current-finding", state: "open" }),
+      expect.objectContaining({ fingerprint: "old-finding", state: "fixed" })
     ]);
   });
 });
