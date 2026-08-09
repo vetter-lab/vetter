@@ -238,7 +238,7 @@ Create `src/core/types.ts` with these public shapes:
 ```ts
 export type Severity = "critical" | "major" | "minor";
 export type ReviewSource = "llm" | "semgrep" | "eslint" | "ruff" | "golangci-lint";
-export type FindingState = "open" | "fixed" | "suppressed";
+export type FindingState = "open" | "fixed" | "dismissed";
 export type RuntimeMode = "app" | "action";
 
 export interface ReviewContext {
@@ -683,7 +683,7 @@ it("does not reopen a developer-resolved current finding", () => {
   });
 
   expect(plan.reopenThreads).toHaveLength(0);
-  expect(plan.history[0]?.state).toBe("suppressed");
+  expect(plan.history[0]?.state).toBe("dismissed");
 });
 ```
 
@@ -702,7 +702,7 @@ export function reconcileFindings(input: {
 }): ReconciliationPlan;
 ```
 
-The function must index existing findings by fingerprint, match unambiguous fallback candidates, emit create/update/resolve/reopen mutations, preserve fixed and suppressed history, and never resolve an existing finding whose scope is absent from `completeScopes`.
+The function must index existing findings by fingerprint, match unambiguous fallback candidates, emit create/update/resolve/reopen mutations, preserve fixed and dismissed history, and never resolve an existing finding whose scope is absent from `completeScopes`.
 
 - [ ] **Step 3: Implement marker rendering and summary rebuilding**
 
@@ -736,7 +736,7 @@ Do not apply any close or resolve mutation when the run has a provider failure f
 
 - [ ] **Step 6: Add end-to-end core integration tests**
 
-Use fake providers and a fake gateway to prove that the same review service creates one inline comment and one summary comment on the first run, updates the existing comment on the second run, resolves a fixed finding, keeps a developer suppression, and rejects a stale head SHA.
+Use fake providers and a fake gateway to prove that the same review service creates one inline comment and one summary comment on the first run, updates the existing comment on the second run, resolves a fixed finding, keeps a developer dismissal, and rejects a stale head SHA.
 
 - [ ] **Step 7: Run core tests**
 
@@ -948,7 +948,7 @@ Document every supported key, default values, allowed analyzers, severity gate b
 
 - [ ] **Step 4: Document state semantics and recovery limits**
 
-Explain `open`, `fixed`, and `suppressed`, manual resolve behavior, bot-resolved regressions, hidden markers, summary comment ownership, no-SQL limitations, and the optional non-SQL queue boundary.
+Explain `open`, `fixed`, and `dismissed`, manual resolve behavior, bot-resolved regressions, hidden markers, summary comment ownership, no-SQL limitations, and the optional non-SQL queue boundary.
 
 - [ ] **Step 5: Update the README with the supported modes and verification commands**
 
@@ -1008,7 +1008,7 @@ Perform these commits in the test PR:
 2. Push the same commit event twice and verify no duplicate.
 3. Fix the finding and verify the thread is resolved and the summary row is `fixed`.
 4. Reintroduce a bot-resolved finding and verify the thread reopens.
-5. Manually resolve a still-present finding and verify it remains `suppressed`.
+5. Manually resolve a still-present finding and verify it remains `dismissed`.
 
 - [ ] **Step 4: Verify stale and rapid-push behavior**
 
@@ -1039,7 +1039,7 @@ git commit -m "test: verify App and Action review flows"
 - External LLM and allowlisted analyzers are implemented in Task 4.
 - Incremental diff review and current-line inline anchors are implemented in Task 3.
 - Finding fingerprints and comment-driven state are implemented in Task 3 and Task 6.
-- `open`, `fixed`, and `suppressed` behavior, including manual resolve and bot regression, is implemented in Task 6.
+- `open`, `fixed`, and `dismissed` behavior, including manual resolve and bot regression, is implemented in Task 6.
 - Summary table and Check Run behavior are implemented in Task 6.
 - Latest-wins, stale SHA protection, and no-PR push skipping are implemented in Tasks 7 and 8.
 - Configuration precedence, runtime selection, secrets, and permissions are implemented in Tasks 2, 7, and 8.

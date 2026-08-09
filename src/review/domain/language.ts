@@ -12,7 +12,7 @@ export interface ReviewOutputLabels {
   states: {
     open: string;
     fixed: string;
-    suppressed: string;
+    dismissed: string;
   };
   checkRun: {
     failedTitle: string;
@@ -32,7 +32,7 @@ const OUTPUT_LABELS: Record<string, ReviewOutputLabels> = {
     summaryTitle: "Vetter review summary",
     noFindings: "_No findings._",
     tableHeaders: { severity: "Severity", state: "State", file: "File", title: "Title" },
-    states: { open: "🔴 open", fixed: "✅ fixed", suppressed: "⚪ suppressed" },
+    states: { open: "🔴 open", fixed: "✅ fixed", dismissed: "⚪ dismissed" },
     checkRun: {
       failedTitle: "Vetter review failed",
       failedSummary: "One or more review providers failed to complete. No findings were closed for the affected scope.",
@@ -49,7 +49,7 @@ const OUTPUT_LABELS: Record<string, ReviewOutputLabels> = {
     summaryTitle: "Vetter 审查摘要",
     noFindings: "_未发现问题。_",
     tableHeaders: { severity: "严重程度", state: "状态", file: "文件", title: "标题" },
-    states: { open: "🔴 待处理", fixed: "✅ 已修复", suppressed: "⚪ 已抑制" },
+    states: { open: "🔴 待处理", fixed: "✅ 已修复", dismissed: "⚪ 已忽略" },
     checkRun: {
       failedTitle: "Vetter 审查失败",
       failedSummary: "一个或多个审查提供方未能完成。受影响范围内的问题未被关闭。",
@@ -66,7 +66,7 @@ const OUTPUT_LABELS: Record<string, ReviewOutputLabels> = {
     summaryTitle: "Vetter レビュー概要",
     noFindings: "_問題は見つかりませんでした。_",
     tableHeaders: { severity: "重大度", state: "状態", file: "ファイル", title: "タイトル" },
-    states: { open: "🔴 未対応", fixed: "✅ 修正済み", suppressed: "⚪ 抑制済み" },
+    states: { open: "🔴 未対応", fixed: "✅ 修正済み", dismissed: "⚪ 無視済み" },
     checkRun: {
       failedTitle: "Vetter レビューに失敗しました",
       failedSummary: "1つ以上のレビュー provider が完了しませんでした。対象範囲の問題はクローズされていません。",
@@ -83,7 +83,7 @@ const OUTPUT_LABELS: Record<string, ReviewOutputLabels> = {
     summaryTitle: "Vetter 리뷰 요약",
     noFindings: "_문제가 없습니다._",
     tableHeaders: { severity: "심각도", state: "상태", file: "파일", title: "제목" },
-    states: { open: "🔴 미해결", fixed: "✅ 수정됨", suppressed: "⚪ 억제됨" },
+    states: { open: "🔴 미해결", fixed: "✅ 수정됨", dismissed: "⚪ 무시됨" },
     checkRun: {
       failedTitle: "Vetter 리뷰 실패",
       failedSummary: "하나 이상의 리뷰 제공자가 완료되지 않았습니다. 해당 범위의 문제는 종료되지 않았습니다.",
@@ -100,7 +100,7 @@ const OUTPUT_LABELS: Record<string, ReviewOutputLabels> = {
     summaryTitle: "Resumen de revisión de Vetter",
     noFindings: "_No se encontraron problemas._",
     tableHeaders: { severity: "Severidad", state: "Estado", file: "Archivo", title: "Título" },
-    states: { open: "🔴 abierto", fixed: "✅ corregido", suppressed: "⚪ suprimido" },
+    states: { open: "🔴 abierto", fixed: "✅ corregido", dismissed: "⚪ ignorado" },
     checkRun: {
       failedTitle: "La revisión de Vetter falló",
       failedSummary: "Uno o más proveedores de revisión no terminaron. No se cerraron problemas en el alcance afectado.",
@@ -117,7 +117,7 @@ const OUTPUT_LABELS: Record<string, ReviewOutputLabels> = {
     summaryTitle: "Résumé de revue Vetter",
     noFindings: "_Aucun problème trouvé._",
     tableHeaders: { severity: "Sévérité", state: "État", file: "Fichier", title: "Titre" },
-    states: { open: "🔴 ouvert", fixed: "✅ corrigé", suppressed: "⚪ supprimé" },
+    states: { open: "🔴 ouvert", fixed: "✅ corrigé", dismissed: "⚪ ignoré" },
     checkRun: {
       failedTitle: "La revue Vetter a échoué",
       failedSummary: "Un ou plusieurs fournisseurs de revue n'ont pas terminé. Aucun problème n'a été fermé pour la portée concernée.",
@@ -134,7 +134,7 @@ const OUTPUT_LABELS: Record<string, ReviewOutputLabels> = {
     summaryTitle: "Vetter Review-Zusammenfassung",
     noFindings: "_Keine Probleme gefunden._",
     tableHeaders: { severity: "Schweregrad", state: "Status", file: "Datei", title: "Titel" },
-    states: { open: "🔴 offen", fixed: "✅ behoben", suppressed: "⚪ unterdrückt" },
+    states: { open: "🔴 offen", fixed: "✅ behoben", dismissed: "⚪ ignoriert" },
     checkRun: {
       failedTitle: "Vetter-Review fehlgeschlagen",
       failedSummary: "Mindestens ein Review-Anbieter wurde nicht abgeschlossen. Für den betroffenen Bereich wurden keine Probleme geschlossen.",

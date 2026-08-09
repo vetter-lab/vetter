@@ -13,7 +13,7 @@ scenarios.
 | --- | --- | --- |
 | `open` | The finding is currently reported and its thread is unresolved. | A current review run reproduces the finding, and no human has resolved its thread. |
 | `fixed` | The finding disappeared from a **complete incremental** review pass. | An existing bot thread is unresolved, its location is included in the commit diff, and the provider/path scope that would have reported it finished successfully this run. Vetter resolves the thread. |
-| `suppressed` | A human resolved the thread themselves. | The thread is resolved and `resolvedBy` (or the fallback marker field) identifies a non-bot login. Vetter never reopens this automatically. |
+| `dismissed` | A human resolved the thread themselves. | The thread is resolved and `resolvedBy` (or the fallback marker field) identifies a non-bot login. Vetter never reopens this automatically. |
 
 State transitions are computed by the pure function `reconcileFindings` in
 `src/review/domain/reconciliation/reconcile.ts`, driven entirely by comparing
@@ -43,6 +43,9 @@ And the one summary comment carries:
 Every summary row carries a hidden `vetter:summary-row:v1` marker so a
 review-thread state refresh can preserve it, including summary-only rows
 (findings without an inline review comment).
+
+Summary rows written by older versions with `state="suppressed"` remain
+readable and are canonicalized to `dismissed` when the summary is rebuilt.
 
 During a normal review run, these summary-row markers are also used as a
 fallback for a finding that is missing from a transient GitHub thread
@@ -131,7 +134,7 @@ source of truth either way.
   `open`. Vetter does not create a second review thread merely because GitHub
   reports the original comment as outdated.
 - **A finding a developer manually resolves** (clicks "Resolve
-  conversation" without Vetter reopening it): stays `suppressed`
+  conversation" without Vetter reopening it): stays `dismissed`
   permanently. Vetter never reopens a thread it didn't resolve itself,
   even if the same finding is detected again in a later run — as long as
   the fingerprint still matches, it's treated as intentionally dismissed.
@@ -144,7 +147,7 @@ source of truth either way.
   regresses**: Vetter detects that the thread it previously resolved was
   bot-resolved (via `resolvedBy` or the marker's `bot-resolved` field),
   reopens the thread, and updates the comment — this is not treated as a
-  suppression.
+  dismissal.
 - **A developer reopens a review thread**: the same lightweight sync changes
   the row back to `open` and recalculates the Check Run.
 - **A failed or timed-out analyzer**: its findings are dropped for this

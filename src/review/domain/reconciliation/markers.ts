@@ -5,7 +5,7 @@ const FINDING_MARKER_PATTERN =
   /<!--\s*vetter:finding:v2\s+fingerprint="([^"]*)"\s+rule="([^"]*)"\s+severity="([^"]*)"\s+source="([^"]*)"\s+scope="([^"]*)"\s+title="([^"]*)"\s+anchor="([^"]*)"\s+bot-resolved="(true|false)"\s*-->/;
 const SUMMARY_MARKER_PATTERN = /<!--\s*vetter:summary:v1\s*-->/;
 const SUMMARY_ROW_MARKER_PATTERN =
-  /<!--\s*vetter:summary-row:v1\s+fingerprint="([^"]*)"\s+severity="([^"]*)"\s+title="([^"]*)"\s+path="([^"]*)"\s+line="(null|[0-9]+)"\s+state="(open|fixed|suppressed)"\s*-->/g;
+  /<!--\s*vetter:summary-row:v1\s+fingerprint="([^"]*)"\s+severity="([^"]*)"\s+title="([^"]*)"\s+path="([^"]*)"\s+line="(null|[0-9]+)"\s+state="(open|fixed|dismissed|suppressed)"\s*-->/g;
 
 export const SUMMARY_MARKER = "<!-- vetter:summary:v1 -->";
 
@@ -128,7 +128,9 @@ export function parseSummaryRowMarkers(body: string): SummaryRowMarkerFields[] {
       title: unescapeAttr(title),
       path: unescapeAttr(path),
       line: line === "null" ? null : Number(line),
-      state: state as FindingState
+      // Keep summaries written before the rename readable and canonicalize them
+      // when the next summary body is rebuilt.
+      state: (state === "suppressed" ? "dismissed" : state) as FindingState
     };
   }).filter((marker): marker is SummaryRowMarkerFields => marker !== null);
 }

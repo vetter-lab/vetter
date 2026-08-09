@@ -38,19 +38,19 @@ function existing(input: {
     commentId: input.commentId,
     threadId: input.threadId,
     isResolved: input.isResolved,
-    resolvedByLogin: input.state === "suppressed" ? "developer" : input.state === "fixed" ? "github-actions[bot]" : null,
+    resolvedByLogin: input.state === "dismissed" ? "developer" : input.state === "fixed" ? "github-actions[bot]" : null,
     lastAction: input.state === "fixed" ? "bot-resolved" : "updated",
     state: input.state
   };
 }
 
 describe("reconcileFindings", () => {
-  it("keeps suppressed and fixed findings while resolving only the fixed thread", () => {
-    const suppressed = existing({
-      fingerprint: "suppressed",
-      state: "suppressed",
+  it("keeps dismissed and fixed findings while resolving only the fixed thread", () => {
+    const dismissed = existing({
+      fingerprint: "dismissed",
+      state: "dismissed",
       isResolved: true,
-      threadId: "thread-suppressed",
+      threadId: "thread-dismissed",
       commentId: 1
     });
     const fixed = existing({
@@ -68,7 +68,7 @@ describe("reconcileFindings", () => {
         { finding: currentOpen, anchor: { path: currentOpen.path, line: currentOpen.line, side: "RIGHT" } },
         { finding: currentOpenAgain, anchor: { path: currentOpenAgain.path, line: currentOpenAgain.line, side: "RIGHT" } }
       ],
-      existing: [suppressed, fixed],
+      existing: [dismissed, fixed],
       persistedSummaryRows: [],
       completeScopes: new Set(["llm:src/example.ts"]),
       botLogins: new Set(["github-actions[bot]"])
@@ -79,7 +79,7 @@ describe("reconcileFindings", () => {
     expect(plan.rows.map((row) => [row.fingerprint, row.state])).toEqual([
       ["current-open", "open"],
       ["current-open-again", "open"],
-      ["suppressed", "suppressed"],
+      ["dismissed", "dismissed"],
       ["fixed", "fixed"]
     ]);
   });
@@ -96,12 +96,12 @@ describe("reconcileFindings", () => {
       existing: [],
       persistedSummaryRows: [
         {
-          fingerprint: "suppressed",
+          fingerprint: "dismissed",
           severity: "P1",
-          title: "Manually suppressed",
+          title: "Manually dismissed",
           path: "src/example.ts",
           line: 4,
-          state: "suppressed",
+          state: "dismissed",
           commentId: null
         },
         {
@@ -138,7 +138,7 @@ describe("reconcileFindings", () => {
 
     expect(plan.createInline).toHaveLength(0);
     expect(plan.rows).toHaveLength(4);
-    expect(plan.rows.find((row) => row.fingerprint === "suppressed")?.state).toBe("suppressed");
+    expect(plan.rows.find((row) => row.fingerprint === "dismissed")?.state).toBe("dismissed");
     expect(plan.rows.find((row) => row.fingerprint === "fixed")?.state).toBe("fixed");
   });
 

@@ -23,7 +23,7 @@ function makeFinding(ruleId: string, title: string, line: number): FindingDraft 
   };
 }
 
-function summaryRow(fingerprint: string, title: string, state: "open" | "fixed" | "suppressed", line: number): string {
+function summaryRow(fingerprint: string, title: string, state: "open" | "fixed" | "dismissed", line: number): string {
   return buildSummaryRowMarker({
     fingerprint,
     severity: "P1",
@@ -38,7 +38,7 @@ it("preserves summary state when a cancelled run omitted old threads from its sn
   const currentFindings = [makeFinding("current-a", "Current A", 2), makeFinding("current-b", "Current B", 3)];
   const summaryBody = [
     "<!-- vetter:summary:v1 -->",
-    summaryRow("suppressed-fingerprint", "Manually suppressed", "suppressed", 4),
+    summaryRow("dismissed-fingerprint", "Manually dismissed", "dismissed", 4),
     summaryRow("fixed-fingerprint", "Already fixed", "fixed", 5),
     summaryRow(computeFingerprint(currentFindings[0]!), "Current A", "open", 2),
     summaryRow(computeFingerprint(currentFindings[1]!), "Current B", "open", 3)
@@ -81,7 +81,8 @@ it("preserves summary state when a cancelled run omitted old threads from its sn
       return [];
     },
     async updateReviewComment() {},
-    async createIssueComment() {
+    async createIssueComment(input) {
+      updatedSummary = input.body;
       return { commentId: 10 };
     },
     async updateIssueComment(input) {
@@ -115,6 +116,6 @@ it("preserves summary state when a cancelled run omitted old threads from its sn
   expect(result.status === "completed" ? result.rows : []).toHaveLength(4);
   expect(createdReviewComments).toBe(0);
   expect(updatedSummary.match(/vetter:summary-row:v1/g)).toHaveLength(4);
-  expect(updatedSummary).toContain("suppressed");
+  expect(updatedSummary).toContain("dismissed");
   expect(updatedSummary).toContain("fixed");
 });

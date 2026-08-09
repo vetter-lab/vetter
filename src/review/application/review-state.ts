@@ -20,7 +20,7 @@ export function toExistingFindings(snapshot: ReviewStateSnapshot, botLogins: Set
 
       const lastAction: ExistingFinding["lastAction"] = marker.botResolved ? "bot-resolved" : "updated";
       const resolvedByBot = wasResolvedByBot({ resolvedByLogin: thread.resolvedByLogin, lastAction }, botLogins);
-      const state: FindingState = !thread.isResolved ? "open" : resolvedByBot ? "fixed" : "suppressed";
+      const state: FindingState = !thread.isResolved ? "open" : resolvedByBot ? "fixed" : "dismissed";
 
       const finding: ExistingFinding = {
         fingerprint: marker.fingerprint,
@@ -54,12 +54,12 @@ export function toExistingFindings(snapshot: ReviewStateSnapshot, botLogins: Set
 
 /**
  * A duplicate fingerprint can be left behind by overlapping workflow runs.
- * Prefer a human suppression over any reopenable state, then prefer an open
+ * Prefer a human dismissal over any reopenable state, then prefer an open
  * thread over a bot-fixed duplicate so a regression can be handled normally.
  */
 function shouldPrefer(candidate: ExistingFinding, current: ExistingFinding): boolean {
   const rank = (finding: ExistingFinding): number => {
-    if (finding.state === "suppressed") {
+    if (finding.state === "dismissed") {
       return 0;
     }
     if (finding.state === "open") {

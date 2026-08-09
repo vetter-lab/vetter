@@ -6,7 +6,7 @@ import type { GitHubGateway } from "../../../../src/integrations/github/gateway.
 import type { CheckRunInput, ReviewStateSnapshot } from "../../../../src/integrations/github/types.js";
 
 describe("syncReviewSummary", () => {
-  it("marks a manually resolved finding as suppressed without rerunning review", async () => {
+  it("marks a manually resolved finding as dismissed without rerunning review", async () => {
     const marker = buildFindingMarker({
       fingerprint: "fingerprint-1",
       ruleId: "rule-1",
@@ -84,8 +84,9 @@ describe("syncReviewSummary", () => {
         return [];
       },
       async updateReviewComment() {},
-      async createIssueComment() {
+      async createIssueComment(input) {
         createdSummary = true;
+        updatedSummary = input.body;
         return { commentId: 100 };
       },
       async updateIssueComment(input) {
@@ -114,12 +115,12 @@ describe("syncReviewSummary", () => {
     });
 
     expect(result.status).toBe("completed");
-    expect(updatedSummary).toContain("suppressed");
+    expect(updatedSummary).toContain("dismissed");
     expect(updatedSummary).toContain("src/summary-only.ts");
     expect(updatedSummary).toContain(
       '<a href="https://github.com/owner/repo/pull/1/changes/BASE..head-sha#r7">src/example.ts:12</a>'
     );
-    expect(createdSummary).toBe(false);
+    expect(createdSummary).toBe(true);
     expect(capturedCheckRun.value?.conclusion).toBe("success");
   });
 });

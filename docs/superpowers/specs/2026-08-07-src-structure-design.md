@@ -142,7 +142,7 @@ runtime modules.
   other for type definitions.
 - `findings/` owns text normalization, fingerprint computation, finding
   normalization, and existing-finding matching.
-- `reconciliation/` owns marker parsing and the open/fixed/suppressed state
+- `reconciliation/` owns marker parsing and the open/fixed/dismissed state
   transition plan.
 - `reporting/` owns summary rendering and Check Run evaluation.
 

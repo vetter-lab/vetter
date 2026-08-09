@@ -329,7 +329,7 @@ export function toExistingFindings(
 
       const lastAction: ExistingFinding["lastAction"] = marker.botResolved ? "bot-resolved" : "updated";
       const resolvedByBot = wasResolvedByBot({ resolvedByLogin: thread.resolvedByLogin, lastAction }, botLogins);
-      const state: FindingState = !thread.isResolved ? "open" : resolvedByBot ? "fixed" : "suppressed";
+      const state: FindingState = !thread.isResolved ? "open" : resolvedByBot ? "fixed" : "dismissed";
 
       findings.push({
         fingerprint: marker.fingerprint,

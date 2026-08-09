@@ -96,7 +96,7 @@ export function isConfiguredBotLogin(login: string | null | undefined, botLogins
 
 /**
  * Determines whether a resolved thread was resolved by Vetter itself (a
- * "fixed" finding) rather than a developer (a "suppressed" finding).
+ * "fixed" finding) rather than a developer (a "dismissed" finding).
  * `resolvedByLogin` from GitHub's GraphQL API is authoritative when known;
  * the marker's `bot-resolved` field is the fallback. See design doc section 5.
  */
@@ -175,7 +175,7 @@ function rowFromExisting(existing: ExistingFinding, state: FindingState): Summar
  *
  * - A current finding matching an unresolved or bot-resolved-then-regressed
  *   thread is created/updated/reopened.
- * - A current finding matching a developer-resolved thread stays suppressed
+ * - A current finding matching a developer-resolved thread stays dismissed
  *   and is never reopened.
  * - An existing finding missing from the current run is marked `fixed` only
  *   when its provider/path scope fully completed this run and its location was
@@ -221,7 +221,7 @@ export function reconcileFindings(input: ReconcileInput): ReconciliationPlan {
           updateInline.push({ commentId: match.commentId, finding: toRenderable(finding), botResolved: false });
           setRow(rowFromFinding(finding, "open", match.commentId, match.commentUrl));
         } else {
-          setRow(rowFromFinding(finding, "suppressed", match.commentId, match.commentUrl));
+          setRow(rowFromFinding(finding, "dismissed", match.commentId, match.commentUrl));
         }
         continue;
       }

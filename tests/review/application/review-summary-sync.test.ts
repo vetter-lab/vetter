@@ -10,7 +10,7 @@ it("relocates a manually resolved finding during summary-only sync", async () =>
   const finding: FindingDraft = {
     ruleId: "manual-rule",
     severity: "P1",
-    title: "Manually suppressed",
+    title: "Manually dismissed",
     body: "Review this unsafe call.",
     path: "src/example.ts",
     line: 2,
@@ -72,7 +72,8 @@ it("relocates a manually resolved finding during summary-only sync", async () =>
       return [];
     },
     async updateReviewComment() {},
-    async createIssueComment() {
+    async createIssueComment(input) {
+      summaryBody = input.body;
       return { commentId: 9 };
     },
     async updateIssueComment(input) {
@@ -104,6 +105,6 @@ it("relocates a manually resolved finding during summary-only sync", async () =>
 
   expect(result.status).toBe("completed");
   expect(parseSummaryRowMarkers(summaryBody)).toEqual([
-    expect.objectContaining({ fingerprint: computeFingerprint(finding), line: 3, state: "suppressed" })
+    expect.objectContaining({ fingerprint: computeFingerprint(finding), line: 3, state: "dismissed" })
   ]);
 });

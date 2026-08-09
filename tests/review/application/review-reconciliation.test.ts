@@ -35,8 +35,8 @@ function existingMarker(input: FindingDraft, botResolved: boolean): string {
   });
 }
 
-it("refreshes manual suppression and fixes an outdated finding in one commit run", async () => {
-  const manual = finding("manual-rule", "Manually suppressed", 3);
+it("refreshes manual dismissal and fixes an outdated finding in one commit run", async () => {
+  const manual = finding("manual-rule", "Manually dismissed", 3);
   const fixed = finding("fixed-rule", "Already fixed");
   let summaryBody = "";
   const resolvedThreads: string[] = [];
@@ -145,7 +145,7 @@ it("refreshes manual suppression and fixes an outdated finding in one commit run
   expect(resolvedThreads).toEqual(["fixed-thread"]);
   const rows = parseSummaryRowMarkers(summaryBody);
   expect(rows.find((row) => row.fingerprint === computeFingerprint(manual))).toEqual(
-    expect.objectContaining({ line: 2, state: "suppressed" })
+    expect.objectContaining({ line: 2, state: "dismissed" })
   );
   expect(rows.find((row) => row.fingerprint === computeFingerprint(fixed))?.state).toBe("fixed");
 });

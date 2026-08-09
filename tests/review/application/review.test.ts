@@ -190,6 +190,7 @@ test("links summary file locations to the pull request changes page", async () =
     scopeKey: "llm:link-rule:src/example.ts"
   };
   let summaryBody = "";
+  const operations: string[] = [];
   const modelProvider: ModelProvider = {
     async review() {
       return { findings: [finding], scopeKeys: ["llm:src/example.ts"] };
@@ -219,18 +220,22 @@ test("links summary file locations to the pull request changes page", async () =
       return { reviewThreads: [], issueComments: [] };
     },
     async findSummaryComment() {
-      return null;
+      return { commentId: 9, body: "<!-- vetter:summary:v1 -->", authorLogin: "github-actions[bot]" };
     },
     async createReview() {
+      operations.push("inline");
       return [{ commentId: 42 }];
     },
     async updateReviewComment() {},
     async createIssueComment(input) {
+      operations.push("summary:create");
       summaryBody = input.body;
       return { commentId: 1 };
     },
     async updateIssueComment() {},
-    async deleteIssueComment() {},
+    async deleteIssueComment() {
+      operations.push("summary:delete");
+    },
     async resolveThread() {},
     async reopenThread() {},
     async upsertCheckRun() {}
@@ -258,4 +263,5 @@ test("links summary file locations to the pull request changes page", async () =
     '<a href="https://github.com/vetter-lab/demo/pull/1/changes/BASE..head-sha#r42">src/example.ts:2</a>'
   );
   expect(summaryBody).not.toContain("| Link |");
+  expect(operations).toEqual(["inline", "summary:delete", "summary:create"]);
 });

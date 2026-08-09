@@ -53859,7 +53859,7 @@ const runAnalyzerProcess = (input) => {
 
 const FINDING_MARKER_PATTERN = /<!--\s*vetter:finding:v2\s+fingerprint="([^"]*)"\s+rule="([^"]*)"\s+severity="([^"]*)"\s+source="([^"]*)"\s+scope="([^"]*)"\s+title="([^"]*)"\s+anchor="([^"]*)"\s+bot-resolved="(true|false)"\s*-->/;
 const SUMMARY_MARKER_PATTERN = /<!--\s*vetter:summary:v1\s*-->/;
-const SUMMARY_ROW_MARKER_PATTERN = /<!--\s*vetter:summary-row:v1\s+fingerprint="([^"]*)"\s+severity="([^"]*)"\s+title="([^"]*)"\s+path="([^"]*)"\s+line="(null|[0-9]+)"\s+state="(open|fixed|suppressed)"\s*-->/g;
+const SUMMARY_ROW_MARKER_PATTERN = /<!--\s*vetter:summary-row:v1\s+fingerprint="([^"]*)"\s+severity="([^"]*)"\s+title="([^"]*)"\s+path="([^"]*)"\s+line="(null|[0-9]+)"\s+state="(open|fixed|dismissed|suppressed)"\s*-->/g;
 const SUMMARY_MARKER = "<!-- vetter:summary:v1 -->";
 function escapeAttr(value) {
     return value.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -53947,7 +53947,9 @@ function parseSummaryRowMarkers(body) {
             title: unescapeAttr(title),
             path: unescapeAttr(path),
             line: line === "null" ? null : Number(line),
-            state: state
+            // Keep summaries written before the rename readable and canonicalize them
+            // when the next summary body is rebuilt.
+            state: (state === "suppressed" ? "dismissed" : state)
         };
     }).filter((marker) => marker !== null);
 }
@@ -54051,7 +54053,7 @@ function isConfiguredBotLogin(login, botLogins) {
 }
 /**
  * Determines whether a resolved thread was resolved by Vetter itself (a
- * "fixed" finding) rather than a developer (a "suppressed" finding).
+ * "fixed" finding) rather than a developer (a "dismissed" finding).
  * `resolvedByLogin` from GitHub's GraphQL API is authoritative when known;
  * the marker's `bot-resolved` field is the fallback. See design doc section 5.
  */
@@ -54120,7 +54122,7 @@ function rowFromExisting(existing, state) {
  *
  * - A current finding matching an unresolved or bot-resolved-then-regressed
  *   thread is created/updated/reopened.
- * - A current finding matching a developer-resolved thread stays suppressed
+ * - A current finding matching a developer-resolved thread stays dismissed
  *   and is never reopened.
  * - An existing finding missing from the current run is marked `fixed` only
  *   when its provider/path scope fully completed this run and its location was
@@ -54155,7 +54157,7 @@ function reconcileFindings(input) {
                     setRow(rowFromFinding(finding, "open", match.commentId, match.commentUrl));
                 }
                 else {
-                    setRow(rowFromFinding(finding, "suppressed", match.commentId, match.commentUrl));
+                    setRow(rowFromFinding(finding, "dismissed", match.commentId, match.commentUrl));
                 }
                 continue;
             }
@@ -67565,7 +67567,7 @@ const OUTPUT_LABELS = {
         summaryTitle: "Vetter review summary",
         noFindings: "_No findings._",
         tableHeaders: { severity: "Severity", state: "State", file: "File", title: "Title" },
-        states: { open: "🔴 open", fixed: "✅ fixed", suppressed: "⚪ suppressed" },
+        states: { open: "🔴 open", fixed: "✅ fixed", dismissed: "⚪ dismissed" },
         checkRun: {
             failedTitle: "Vetter review failed",
             failedSummary: "One or more review providers failed to complete. No findings were closed for the affected scope.",
@@ -67582,7 +67584,7 @@ const OUTPUT_LABELS = {
         summaryTitle: "Vetter 审查摘要",
         noFindings: "_未发现问题。_",
         tableHeaders: { severity: "严重程度", state: "状态", file: "文件", title: "标题" },
-        states: { open: "🔴 待处理", fixed: "✅ 已修复", suppressed: "⚪ 已抑制" },
+        states: { open: "🔴 待处理", fixed: "✅ 已修复", dismissed: "⚪ 已忽略" },
         checkRun: {
             failedTitle: "Vetter 审查失败",
             failedSummary: "一个或多个审查提供方未能完成。受影响范围内的问题未被关闭。",
@@ -67599,7 +67601,7 @@ const OUTPUT_LABELS = {
         summaryTitle: "Vetter レビュー概要",
         noFindings: "_問題は見つかりませんでした。_",
         tableHeaders: { severity: "重大度", state: "状態", file: "ファイル", title: "タイトル" },
-        states: { open: "🔴 未対応", fixed: "✅ 修正済み", suppressed: "⚪ 抑制済み" },
+        states: { open: "🔴 未対応", fixed: "✅ 修正済み", dismissed: "⚪ 無視済み" },
         checkRun: {
             failedTitle: "Vetter レビューに失敗しました",
             failedSummary: "1つ以上のレビュー provider が完了しませんでした。対象範囲の問題はクローズされていません。",
@@ -67616,7 +67618,7 @@ const OUTPUT_LABELS = {
         summaryTitle: "Vetter 리뷰 요약",
         noFindings: "_문제가 없습니다._",
         tableHeaders: { severity: "심각도", state: "상태", file: "파일", title: "제목" },
-        states: { open: "🔴 미해결", fixed: "✅ 수정됨", suppressed: "⚪ 억제됨" },
+        states: { open: "🔴 미해결", fixed: "✅ 수정됨", dismissed: "⚪ 무시됨" },
         checkRun: {
             failedTitle: "Vetter 리뷰 실패",
             failedSummary: "하나 이상의 리뷰 제공자가 완료되지 않았습니다. 해당 범위의 문제는 종료되지 않았습니다.",
@@ -67633,7 +67635,7 @@ const OUTPUT_LABELS = {
         summaryTitle: "Resumen de revisión de Vetter",
         noFindings: "_No se encontraron problemas._",
         tableHeaders: { severity: "Severidad", state: "Estado", file: "Archivo", title: "Título" },
-        states: { open: "🔴 abierto", fixed: "✅ corregido", suppressed: "⚪ suprimido" },
+        states: { open: "🔴 abierto", fixed: "✅ corregido", dismissed: "⚪ ignorado" },
         checkRun: {
             failedTitle: "La revisión de Vetter falló",
             failedSummary: "Uno o más proveedores de revisión no terminaron. No se cerraron problemas en el alcance afectado.",
@@ -67650,7 +67652,7 @@ const OUTPUT_LABELS = {
         summaryTitle: "Résumé de revue Vetter",
         noFindings: "_Aucun problème trouvé._",
         tableHeaders: { severity: "Sévérité", state: "État", file: "Fichier", title: "Titre" },
-        states: { open: "🔴 ouvert", fixed: "✅ corrigé", suppressed: "⚪ supprimé" },
+        states: { open: "🔴 ouvert", fixed: "✅ corrigé", dismissed: "⚪ ignoré" },
         checkRun: {
             failedTitle: "La revue Vetter a échoué",
             failedSummary: "Un ou plusieurs fournisseurs de revue n'ont pas terminé. Aucun problème n'a été fermé pour la portée concernée.",
@@ -67667,7 +67669,7 @@ const OUTPUT_LABELS = {
         summaryTitle: "Vetter Review-Zusammenfassung",
         noFindings: "_Keine Probleme gefunden._",
         tableHeaders: { severity: "Schweregrad", state: "Status", file: "Datei", title: "Titel" },
-        states: { open: "🔴 offen", fixed: "✅ behoben", suppressed: "⚪ unterdrückt" },
+        states: { open: "🔴 offen", fixed: "✅ behoben", dismissed: "⚪ ignoriert" },
         checkRun: {
             failedTitle: "Vetter-Review fehlgeschlagen",
             failedSummary: "Mindestens ein Review-Anbieter wurde nicht abgeschlossen. Für den betroffenen Bereich wurden keine Probleme geschlossen.",
@@ -68246,7 +68248,7 @@ function toExistingFindings(snapshot, botLogins) {
             }
             const lastAction = marker.botResolved ? "bot-resolved" : "updated";
             const resolvedByBot = wasResolvedByBot({ resolvedByLogin: thread.resolvedByLogin, lastAction }, botLogins);
-            const state = !thread.isResolved ? "open" : resolvedByBot ? "fixed" : "suppressed";
+            const state = !thread.isResolved ? "open" : resolvedByBot ? "fixed" : "dismissed";
             const finding = {
                 fingerprint: marker.fingerprint,
                 ruleId: marker.ruleId,
@@ -68276,12 +68278,12 @@ function toExistingFindings(snapshot, botLogins) {
 }
 /**
  * A duplicate fingerprint can be left behind by overlapping workflow runs.
- * Prefer a human suppression over any reopenable state, then prefer an open
+ * Prefer a human dismissal over any reopenable state, then prefer an open
  * thread over a bot-fixed duplicate so a regression can be handled normally.
  */
 function shouldPrefer(candidate, current) {
     const rank = (finding) => {
-        if (finding.state === "suppressed") {
+        if (finding.state === "dismissed") {
             return 0;
         }
         if (finding.state === "open") {
@@ -68356,6 +68358,17 @@ function toPersistedSummaryRow(input) {
         commentId: null
     };
 }
+async function recreateSummaryComment(input) {
+    // Updating an issue comment does not change its position in GitHub's PR timeline.
+    if (input.existingSummary) {
+        await input.gateway.deleteIssueComment({
+            owner: input.pullRequestRef.owner,
+            repo: input.pullRequestRef.repo,
+            commentId: input.existingSummary.commentId
+        });
+    }
+    await input.gateway.createIssueComment({ ...input.pullRequestRef, body: input.body });
+}
 /**
  * Refreshes the summary and Check Run from the persisted GitHub state only.
  * Review-thread webhook deliveries use this path because resolving a thread
@@ -68404,17 +68417,7 @@ async function syncReviewSummary(input) {
     if (signal?.aborted) {
         return { status: "aborted" };
     }
-    if (existingSummary) {
-        await gateway.updateIssueComment({
-            owner: pullRequestRef.owner,
-            repo: pullRequestRef.repo,
-            commentId: existingSummary.commentId,
-            body: summaryBody
-        });
-    }
-    else {
-        await gateway.createIssueComment({ ...pullRequestRef, body: summaryBody });
-    }
+    await recreateSummaryComment({ gateway, pullRequestRef, existingSummary, body: summaryBody });
     if (signal?.aborted) {
         return { status: "aborted" };
     }
@@ -68573,17 +68576,7 @@ async function runReview(input) {
         headSha: context.headSha,
         language: config.review.language
     });
-    if (existingSummary) {
-        await gateway.updateIssueComment({
-            owner: pullRequestRef.owner,
-            repo: pullRequestRef.repo,
-            commentId: existingSummary.commentId,
-            body: summaryBody
-        });
-    }
-    else {
-        await gateway.createIssueComment({ ...pullRequestRef, body: summaryBody });
-    }
+    await recreateSummaryComment({ gateway, pullRequestRef, existingSummary, body: summaryBody });
     const evaluation = evaluateCheckRun({
         rows: plan.rows,
         severity: config.severity,

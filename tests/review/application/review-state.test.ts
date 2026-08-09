@@ -16,7 +16,7 @@ function marker(botResolved: boolean): string {
 }
 
 describe("toExistingFindings", () => {
-  it("prefers a human-suppressed duplicate over an open duplicate", () => {
+  it("prefers a human-dismissed duplicate over an open duplicate", () => {
     const findings = toExistingFindings(
       {
         reviewThreads: [
@@ -36,7 +36,7 @@ describe("toExistingFindings", () => {
             ]
           },
           {
-            threadId: "suppressed-thread",
+            threadId: "dismissed-thread",
             isResolved: true,
             resolvedByLogin: "developer",
             comments: [
@@ -58,7 +58,7 @@ describe("toExistingFindings", () => {
 
     expect(findings).toHaveLength(1);
     expect(findings[0]?.commentId).toBe(2);
-    expect(findings[0]?.state).toBe("suppressed");
+    expect(findings[0]?.state).toBe("dismissed");
   });
 
   it("uses originalLine for outdated comments and recognizes GraphQL bot logins", () => {

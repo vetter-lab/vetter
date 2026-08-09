@@ -20,7 +20,7 @@ The default behavior is:
 - Review only branches associated with an open pull request.
 - Review only the latest commit for a pull request.
 - Do not block merging for any severity unless the repository explicitly configures a severity gate and requires the Vetter Check Run in branch protection.
-- Respect a developer-resolved thread as a suppression and do not reopen it automatically.
+- Respect a developer-resolved thread as a dismissal and do not reopen it automatically.
 
 ## 2. Goals and Non-goals
 
@@ -31,7 +31,7 @@ The default behavior is:
 - Support language-agnostic LLM review and repository-configured static analyzers.
 - Classify findings as `critical`, `major`, or `minor`.
 - Create and update inline comments without duplicates.
-- Maintain a summary table containing open, fixed, and suppressed findings.
+- Maintain a summary table containing open, fixed, and dismissed findings.
 - Resolve comments when a finding disappears after a complete analysis.
 - Reopen only findings previously resolved by the bot and later detected again.
 - Support configurable Check Run merge gates.
@@ -162,10 +162,10 @@ marked fixed after the provider scope completes successfully.
 | State | Condition | Action |
 | --- | --- | --- |
 | `open` | Current finding exists and its thread is unresolved | Create or update inline comment |
-| `suppressed` | Current finding exists and the thread was resolved by a developer | Keep resolved; do not reopen |
+| `dismissed` | Current finding exists and the thread was resolved by a developer | Keep resolved; do not reopen |
 | `fixed` | Finding is absent from a complete analysis | Resolve an unresolved bot thread and retain it in the summary |
 
-When a previously bot-resolved finding appears again, Vetter reopens and updates the original thread. GitHub `resolvedBy` is preferred to determine who resolved a thread. If it is unavailable, Vetter uses a marker field written when the bot resolves the thread; if the source is still unknown, Vetter conservatively treats the thread as suppressed.
+When a previously bot-resolved finding appears again, Vetter reopens and updates the original thread. GitHub `resolvedBy` is preferred to determine who resolved a thread. If it is unavailable, Vetter uses a marker field written when the bot resolves the thread; if the source is still unknown, Vetter conservatively treats the thread as dismissed.
 
 An inline comment can only target a line in the current review diff. Findings that cannot be placed on a current diff line are retained in the summary with file and line information but do not create a new inline comment.
 
@@ -176,13 +176,13 @@ Vetter only marks a finding `fixed` when the relevant analyzer and file scope co
 The PR has one Vetter-managed summary issue comment. Each run rebuilds it from the current findings and existing Vetter threads. The table contains:
 
 - severity
-- state: `open`, `fixed`, or `suppressed`
+- state: `open`, `fixed`, or `dismissed`
 - file and line
 - short title
 - link to the inline comment when one exists
 - commit information when useful for the history
 
-The summary retains fixed and suppressed findings. To stay within GitHub comment limits, descriptions remain in inline comments and table rows stay compact. Vetter must not silently drop rows; if the comment approaches the API limit, it switches to compact links and status-only rows.
+The summary retains fixed and dismissed findings. To stay within GitHub comment limits, descriptions remain in inline comments and table rows stay compact. Vetter must not silently drop rows; if the comment approaches the API limit, it switches to compact links and status-only rows.
 
 Vetter creates one Check Run named `vetter / code-review`:
 
@@ -286,7 +286,7 @@ These limitations are acceptable for the first version. A non-SQL durable queue 
 ### Unit tests
 
 - Fingerprint generation, normalization, and unambiguous fallback matching.
-- State transitions for open, fixed, and suppressed findings.
+- State transitions for open, fixed, and dismissed findings.
 - Summary rendering and Check Run conclusion logic.
 - Configuration precedence and validation.
 
@@ -296,7 +296,7 @@ These limitations are acceptable for the first version. A non-SQL durable queue 
 - Re-run the same commit without duplicates.
 - Reuse a comment after a line move.
 - Resolve a missing finding after complete analysis.
-- Keep a developer-resolved finding suppressed.
+- Keep a developer-resolved finding dismissed.
 - Reopen a bot-resolved finding when it returns.
 - Preserve findings when an analyzer scope fails.
 - Reject a stale result before any mutation.
@@ -317,7 +317,7 @@ Use a test repository to verify permissions, REST and GraphQL pagination, inline
 
 - Repeating a review for one commit produces no duplicate comments.
 - A fixed finding becomes `fixed` and its unresolved bot thread is resolved.
-- A developer-resolved finding remains `suppressed` and is not reopened.
+- A developer-resolved finding remains `dismissed` and is not reopened.
 - A bot-resolved finding that returns is reopened and updated.
 - An old commit cannot overwrite a newer review.
 - Partial or failed analysis never closes unverified findings.
