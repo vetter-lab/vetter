@@ -53708,7 +53708,29 @@ function createRuffAnalyzer(processRunner) {
 }
 
 ;// CONCATENATED MODULE: ./src/integrations/analyzers/semgrep.ts
+
+
 const semgrep_SOURCE = "semgrep";
+function semgrep_toRelativePath(repositoryPath, rawPath) {
+    return (0,external_node_path_namespaceObject.isAbsolute)(rawPath) ? (0,external_node_path_namespaceObject.relative)(repositoryPath, rawPath) : rawPath;
+}
+/**
+ * Semgrep's JSON `extra.lines` is not reliable for some rules: it can contain
+ * a rule fingerprint rather than the matched source. Read the matched source
+ * from the checkout so findings at different locations get different
+ * identities and can be relocated after a commit.
+ */
+function readSourceAnchor(repositoryPath, relativePath, startLine, endLine) {
+    try {
+        const content = (0,external_node_fs_namespaceObject.readFileSync)((0,external_node_path_namespaceObject.join)(repositoryPath, relativePath), "utf8");
+        const lines = content.split("\n");
+        const source = lines.slice(startLine - 1, endLine).join("\n").trim();
+        return source.length > 0 ? source : null;
+    }
+    catch {
+        return null;
+    }
+}
 function semgrep_mapSeverity(raw) {
     switch ((raw ?? "").toUpperCase()) {
         case "ERROR":
@@ -53757,17 +53779,27 @@ function createSemgrepAnalyzer(processRunner) {
             catch (error) {
                 throw new Error(`semgrep produced invalid JSON output: ${String(error)}`);
             }
-            const findings = parsed.results.map((item) => ({
-                ruleId: item.check_id,
-                severity: semgrep_mapSeverity(item.extra.severity),
-                title: item.extra.message.split("\n")[0] ?? item.check_id,
-                body: item.extra.message,
-                path: item.path,
-                line: item.start.line,
-                codeAnchor: item.extra.lines.trim(),
-                source: semgrep_SOURCE,
-                scopeKey: `${semgrep_SOURCE}:${item.check_id}:${item.path}`
-            }));
+            const findings = parsed.results.map((item) => {
+                const relativePath = semgrep_toRelativePath(input.repositoryPath, item.path);
+                const endLine = item.end?.line ?? item.start.line;
+                const sourceAnchor = readSourceAnchor(input.repositoryPath, relativePath, item.start.line, endLine);
+                const reportedAnchor = item.extra.lines.trim();
+                // Keep a location-specific fallback when the source file is
+                // unavailable, so multiple findings with the same broken Semgrep
+                // `lines` value cannot collapse into one fingerprint.
+                const codeAnchor = sourceAnchor ?? `${reportedAnchor}\n@line:${String(item.start.line)}`;
+                return {
+                    ruleId: item.check_id,
+                    severity: semgrep_mapSeverity(item.extra.severity),
+                    title: item.extra.message.split("\n")[0] ?? item.check_id,
+                    body: item.extra.message,
+                    path: relativePath,
+                    line: item.start.line,
+                    codeAnchor,
+                    source: semgrep_SOURCE,
+                    scopeKey: `${semgrep_SOURCE}:${item.check_id}:${relativePath}`
+                };
+            });
             const completedScopes = input.changedPaths.map((path) => `${semgrep_SOURCE}:${path}`);
             return { findings, completedScopes };
         }
