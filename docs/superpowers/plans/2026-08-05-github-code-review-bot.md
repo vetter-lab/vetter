@@ -1,5 +1,9 @@
 # GitHub Code Review Bot Implementation Plan
 
+> Status: superseded. This historical implementation plan predates the
+> LLM-only review pipeline and must not be used to reintroduce static
+> analyzers.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Build Vetter as a stateless GitHub code review bot that supports either a GitHub App or a GitHub Action per repository, reviews the latest open-PR commit, reconciles inline comments from GitHub thread state, maintains a summary table, and publishes a configurable Check Run.

@@ -1,5 +1,8 @@
 # Code Review Rubric and P0-P3 Severity Implementation Plan
 
+> Status: superseded. This historical implementation plan predates the
+> LLM-only review pipeline; analyzer references are retained only as history.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Integrate the adapted `code-review-expert` rubric into Vetter's model reviewer and migrate all runtime severity handling to P0-P3 with legacy configuration and comment compatibility.

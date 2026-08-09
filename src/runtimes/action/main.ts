@@ -1,8 +1,6 @@
 import * as core from "@actions/core";
 import * as github from "@actions/github";
 import { loadConfig } from "../../config/load.js";
-import { createAnalyzerProvider } from "../../integrations/analyzers/registry.js";
-import { runAnalyzerProcess } from "../../integrations/analyzers/process.js";
 import { createOctokitGateway } from "../../integrations/github/octokit-gateway.js";
 import { createOpenAiCompatibleModelProvider } from "../../integrations/models/openai-compatible.js";
 import { runReview } from "../../review/application/run-review.js";
@@ -76,17 +74,13 @@ async function run(): Promise<void> {
     ...(modelBaseUrl ? { baseURL: modelBaseUrl } : {})
   });
 
-  const analyzerProviders = config.analyzers.map((name) => createAnalyzerProvider(name, runAnalyzerProcess));
-
   for (const context of contexts) {
     const result = await runReview({
       gateway,
       context,
       config,
       modelProvider,
-      analyzerProviders,
       botLogins: new Set([BOT_LOGIN]),
-      repositoryPath: process.env.GITHUB_WORKSPACE ?? process.cwd(),
       contextFiles: [],
       isRunActive: async () => {
         try {

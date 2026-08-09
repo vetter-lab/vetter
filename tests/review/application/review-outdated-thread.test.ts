@@ -18,8 +18,8 @@ function finding(input: Pick<FindingDraft, "codeAnchor" | "line">): FindingDraft
     path: "src/example.yml",
     line: input.line,
     codeAnchor: input.codeAnchor,
-    source: "semgrep",
-    scopeKey: "semgrep:same-rule:src/example.yml"
+    source: "llm",
+    scopeKey: "llm:same-rule:src/example.yml"
   };
 }
 
@@ -122,19 +122,10 @@ it("resolves an outdated fixed thread and creates a new same-rule finding", asyn
     config: loadConfig({ runtime: "action" }),
     modelProvider: {
       async review() {
-        return { findings: [], scopeKeys: [] };
+        return { findings: [currentFinding], scopeKeys: ["llm:src/example.yml"] };
       }
     },
-    analyzerProviders: [
-      {
-        name: "semgrep",
-        async run() {
-          return { findings: [currentFinding], completedScopes: ["semgrep:src/example.yml"] };
-        }
-      }
-    ],
     botLogins: new Set(["github-actions[bot]"]),
-    repositoryPath: "/tmp/repository",
     contextFiles: []
   });
 

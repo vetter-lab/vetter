@@ -65,7 +65,7 @@ export interface ReconcileInput {
   existing: ExistingFinding[];
   /** Summary rows from the previous run, used when GitHub omits a thread from the snapshot. */
   persistedSummaryRows?: SummaryRow[];
-  /** Provider scope keys (`${source}:${path}`) that completed a full, successful pass this run. */
+  /** LLM scope keys (`${source}:${path}`) that completed a full, successful pass this run. */
   completeScopes: Set<string>;
   /** Existing findings whose location was included in this incremental diff. */
   reviewedExistingFingerprints?: Set<string>;
@@ -73,11 +73,11 @@ export interface ReconcileInput {
 }
 
 /**
- * Formats the provider-completeness scope key for a finding's source/path
+ * Formats the LLM-completeness scope key for a finding's source/path
  * pair. Deliberately distinct from `Finding.scopeKey` (which also carries
  * `ruleId`, for fingerprinting): completeness is tracked per file per
- * provider, not per rule, since a provider either finished reviewing a file
- * or it didn't.
+ * review, not per rule, since the LLM either finished reviewing a file or it
+ * didn't.
  */
 export function providerScope(source: ReviewSource, path: string): string {
   return `${source}:${path}`;
@@ -178,7 +178,7 @@ function rowFromExisting(existing: ExistingFinding, state: FindingState): Summar
  * - A current finding matching a developer-resolved thread stays dismissed
  *   and is never reopened.
  * - An existing finding missing from the current run is marked `fixed` only
- *   when its provider/path scope fully completed this run and its location was
+ *   when its LLM/path scope fully completed this run and its location was
  *   included in the incremental diff; otherwise it is left untouched so a
  *   commit-level review cannot close an unreviewed finding.
  *

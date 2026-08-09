@@ -1,5 +1,8 @@
 # Code Review Rubric and P0-P3 Severity Design
 
+> Status: superseded. This historical design predates the LLM-only review
+> pipeline; any analyzer references are retained only as historical context.
+
 **Date:** 2026-08-07
 
 **Status:** Proposed

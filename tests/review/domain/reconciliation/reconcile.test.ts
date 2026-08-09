@@ -173,15 +173,15 @@ describe("reconcileFindings", () => {
       threadId: "old-thread",
       commentId: 4,
       ruleId: "mutable-action",
-      source: "semgrep",
+      source: "llm",
       codeAnchor: "- uses: actions/checkout@v4"
     });
     const currentFinding: Finding = {
       ...finding("current-finding"),
       ruleId: "mutable-action",
-      source: "semgrep",
+      source: "llm",
       codeAnchor: "- uses: vetter-lab/vetter@main",
-      scopeKey: "semgrep:mutable-action:src/example.ts"
+      scopeKey: "llm:mutable-action:src/example.ts"
     };
 
     const plan = reconcileFindings({
@@ -192,7 +192,7 @@ describe("reconcileFindings", () => {
         }
       ],
       existing: [oldFinding],
-      completeScopes: new Set(["semgrep:src/example.ts"]),
+      completeScopes: new Set(["llm:src/example.ts"]),
       reviewedExistingFingerprints: new Set([oldFinding.fingerprint]),
       botLogins: new Set(["github-actions[bot]"])
     });

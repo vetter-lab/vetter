@@ -37,15 +37,10 @@ export const builtInDefaults = {
     P2: { blockMerge: false },
     P3: { blockMerge: false }
   },
-  analyzers: [] as string[],
   limits: {
-    modelRetries: 2,
-    analyzerTimeoutMs: 30_000,
-    maxAnalyzerOutputBytes: 1_000_000
+    modelRetries: 2
   }
 };
-
-const ALLOWED_ANALYZERS = new Set(["semgrep", "eslint", "ruff", "golangci-lint"]);
 
 /**
  * Parses repository-supplied `.vetter.yml` text into a plain object,
@@ -84,15 +79,8 @@ export function loadConfig(input: ConfigInput): ReviewConfig {
     );
   }
 
-  const analyzers = merged.analyzers;
-  if (Array.isArray(analyzers)) {
-    for (const analyzer of analyzers) {
-      if (!ALLOWED_ANALYZERS.has(analyzer as string)) {
-        throw new Error(
-          `configuration lists an analyzer that is not in the allowed analyzer set: ${String(analyzer)}`
-        );
-      }
-    }
+  if (Object.prototype.hasOwnProperty.call(merged, "analyzers")) {
+    throw new Error("static analyzers are no longer supported; remove the analyzers configuration");
   }
 
   const parsed = reviewConfigSchema.parse(merged);

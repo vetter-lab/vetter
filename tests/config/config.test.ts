@@ -82,11 +82,11 @@ describe("loadConfig", () => {
     ).toThrowError(/requireOpenPullRequest/);
   });
 
-  it("rejects an analyzer that is not in the allowlist", () => {
+  it("rejects the removed static analyzer configuration", () => {
     expect(() =>
       loadConfig({
-        repositoryText: "analyzers:\n  - arbitrary-shell\n"
+        repositoryText: "analyzers:\n  - semgrep\n"
       })
-    ).toThrowError(/analyzer/);
+    ).toThrowError(/static analyzers are no longer supported/);
   });
 });

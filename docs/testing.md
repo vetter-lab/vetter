@@ -12,7 +12,7 @@ scenarios.
 | State | Meaning | How it's produced |
 | --- | --- | --- |
 | `open` | The finding is currently reported and its thread is unresolved. | A current review run reproduces the finding, and no human has resolved its thread. |
-| `fixed` | The finding disappeared from a **complete incremental** review pass. | An existing bot thread is unresolved, its location is included in the commit diff, and the provider/path scope that would have reported it finished successfully this run. Vetter resolves the thread. |
+| `fixed` | The finding disappeared from a **complete incremental** review pass. | An existing bot thread is unresolved, its location is included in the commit diff, and the LLM/path scope that would have reported it finished successfully this run. Vetter resolves the thread. |
 | `dismissed` | A human resolved the thread themselves. | The thread is resolved and `resolvedBy` (or the fallback marker field) identifies a non-bot login. Vetter never reopens this automatically. |
 
 State transitions are computed by the pure function `reconcileFindings` in
@@ -61,7 +61,7 @@ without a separate state store.
 
 ## Fingerprinting and matching
 
-Each review run sends only the event's changed range to the providers. For an
+Each review run sends only the event's changed range to the LLM. For an
 initial pull request review, that range is `base...head`. For a
 `pull_request.synchronize` or push event, it is `before...after`, so findings
 from earlier commits are recovered from GitHub state but are not reviewed as
@@ -86,7 +86,7 @@ and current file contents and updates the summary location when the anchor
 moves. If the persisted anchor is unavailable in the previous file, Vetter
 falls back to the persisted line to determine whether the old location is part
 of the current diff. It only marks the finding fixed when that location is part
-of the current diff and the provider scope completed successfully. If the
+of the current diff and the LLM scope completed successfully. If the
 anchor occurs multiple times, Vetter keeps the previous location rather than
 guessing.
 
@@ -124,8 +124,8 @@ source of truth either way.
   comments. Every current finding either fingerprint-matches an existing
   comment (updated in place) or is genuinely new.
 - **A finding that gets fixed**: on the next run, the finding is absent
-  from the provider's output, its location is part of the commit diff, and if
-  that provider's scope for the affected file completed successfully, Vetter
+  from the LLM's output, its location is part of the commit diff, and if
+  the LLM scope for the affected file completed successfully, Vetter
   resolves the corresponding thread and marks it `fixed` in the summary — the
   inline comment is kept, not deleted. Findings outside the commit diff stay
   open for a later review that includes their location.
@@ -140,7 +140,7 @@ source of truth either way.
   the fingerprint still matches, it's treated as intentionally dismissed.
   When the App is subscribed to `pull_request_review_thread`, the summary
   and Check Run are refreshed immediately from the webhook without
-  rerunning providers. The Action runtime does not support this trigger,
+  rerunning the LLM. The Action runtime does not support this trigger,
   so resolving or reopening a thread in Action mode is only detected on
   the next `synchronize` or `push` event.
 - **A finding that returns after Vetter resolved it as fixed, then
@@ -150,13 +150,11 @@ source of truth either way.
   dismissal.
 - **A developer reopens a review thread**: the same lightweight sync changes
   the row back to `open` and recalculates the Check Run.
-- **A failed or timed-out analyzer**: its findings are dropped for this
-  run, but — critically — none of its previously reported findings are
-  closed, because `reconcileFindings` only marks a finding `fixed` when
-  the specific provider/path scope is in `completeScopes`. A failed
-  provider always fails the Check Run (see `evaluateCheckRun` in
-  `src/review/domain/reporting/check-run.ts`), so a `success` conclusion is a reliable signal
-  that every configured provider actually ran to completion.
+- **A failed LLM review**: its findings are dropped for this run, but —
+  critically — none of its previously reported findings are closed, because
+  `reconcileFindings` only marks a finding `fixed` when the LLM/path scope is
+  in `completeScopes`. A failed LLM review always fails the Check Run (see
+  `evaluateCheckRun` in `src/review/domain/reporting/check-run.ts`).
 
 ## Running the verification suite locally
 

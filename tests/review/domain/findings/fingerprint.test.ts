@@ -16,7 +16,7 @@ function makeDraft(overrides: Partial<FindingDraft> = {}): FindingDraft {
     path: "src/example.ts",
     line: 12,
     codeAnchor: "console.log('hi');",
-    source: "eslint",
+    source: "llm",
     scopeKey: "",
     ...overrides
   };
@@ -26,8 +26,8 @@ function makeExisting(overrides: Partial<ExistingFinding> = {}): ExistingFinding
   return {
     fingerprint: "fingerprint-a",
     ruleId: "no-console",
-    source: "eslint",
-    scopeKey: "eslint:no-console:src/example.ts",
+    source: "llm",
+    scopeKey: "llm:no-console:src/example.ts",
     severity: "P2",
     title: "Avoid console statements",
     body: "Remove the console.log call.",
@@ -80,7 +80,7 @@ describe("normalizeFinding", () => {
 
     expect(finding.title).toBe("Avoid console statements");
     expect(finding.body).toBe("Remove it.");
-    expect(finding.scopeKey).toBe("eslint:no-console:src/example.ts");
+    expect(finding.scopeKey).toBe("llm:no-console:src/example.ts");
     expect(finding.fingerprint).toBe(computeFingerprint(finding));
   });
 

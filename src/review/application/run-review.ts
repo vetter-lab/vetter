@@ -1,7 +1,6 @@
 import type { ChangedFileEntry, GitHubGateway } from "../../integrations/github/gateway.js";
 import type { PullRequestRef } from "../../integrations/github/types.js";
 import type { ReviewConfig } from "../../config/schema.js";
-import type { AnalyzerProvider } from "../../integrations/analyzers/types.js";
 import type { ModelProvider } from "../../integrations/models/model.js";
 import { findReviewAnchor } from "../domain/diff/anchor.js";
 import { parseChangedFiles } from "../domain/diff/parser.js";
@@ -25,10 +24,7 @@ export interface RunReviewInput {
   context: ReviewContext;
   config: ReviewConfig;
   modelProvider: ModelProvider;
-  analyzerProviders: AnalyzerProvider[];
   botLogins: Set<string>;
-  /** Local checkout path analyzers read from; provided by the runtime layer. */
-  repositoryPath: string;
   /** Read-only file contents made available to the model provider as supporting context. */
   contextFiles: Array<{ path: string; content: string }>;
   /**
@@ -54,11 +50,6 @@ export type RunReviewResult =
   | { status: "stale" }
   | { status: "aborted" }
   | { status: "completed"; conclusion: "success" | "failure"; rows: SummaryRow[] };
-
-interface ProviderTask {
-  name: string;
-  run: () => Promise<{ findings: FindingDraft[]; scopeKeys: string[] }>;
-}
 
 /**
  * Reconstructs a full unified-diff-with-headers string for one file from
@@ -147,8 +138,8 @@ async function recreateSummaryComment(input: {
 /**
  * Refreshes the summary and Check Run from the persisted GitHub state only.
  * Review-thread webhook deliveries use this path because resolving a thread
- * does not change the code being reviewed and does not require providers to
- * run again.
+ * does not change the code being reviewed and does not require the LLM to run
+ * again.
  */
 export async function syncReviewSummary(input: SyncReviewSummaryInput): Promise<RunReviewResult> {
   const { gateway, context, config, botLogins, signal } = input;
@@ -228,14 +219,13 @@ export async function syncReviewSummary(input: SyncReviewSummaryInput): Promise<
 }
 
 /**
- * Orchestrates one review run end to end: loads the diff and provider
- * findings, guards against a stale head SHA, reconciles against existing
+ * Orchestrates one review run end to end: loads the diff and LLM findings,
+ * guards against a stale head SHA, reconciles against existing
  * GitHub state, and applies the resulting mutations (review comments, thread
  * resolve/reopen, summary comment, Check Run) through the gateway.
  *
- * Providers run concurrently via `Promise.allSettled`; a failed provider
- * contributes no findings and no completed scope, so `reconcileFindings`
- * never closes a finding in the scope it was responsible for.
+ * A failed LLM review contributes no findings and no completed scope, so
+ * `reconcileFindings` never closes findings in an unverified scope.
  */
 export async function runReview(input: RunReviewInput): Promise<RunReviewResult> {
   const {
@@ -243,9 +233,7 @@ export async function runReview(input: RunReviewInput): Promise<RunReviewResult>
     context,
     config,
     modelProvider,
-    analyzerProviders,
     botLogins,
-    repositoryPath,
     contextFiles,
     signal,
     isRunActive
@@ -267,63 +255,30 @@ export async function runReview(input: RunReviewInput): Promise<RunReviewResult>
     baseSha: context.reviewBaseSha ?? context.baseSha,
     headSha: context.headSha
   });
-  const changedPaths = changedFileEntries.map((file) => file.path);
   const reviewPatches = changedFileEntries.map(toSyntheticPatch).filter((patch) => patch.length > 0);
   const parsedDiff = parseChangedFiles(reviewPatches);
   const reviewDiff = reviewPatches.join("\n");
-
-  const tasks: ProviderTask[] = [];
-
-  if (config.review.enabled) {
-    tasks.push({
-      name: "llm",
-      run: async () => {
-        const result = await modelProvider.review({
-          diff: reviewDiff,
-          contextFiles,
-          model: config.review.model,
-          language: config.review.language
-        });
-        return { findings: result.findings, scopeKeys: result.scopeKeys };
-      }
-    });
-  }
-
-  for (const analyzer of analyzerProviders) {
-    tasks.push({
-      name: analyzer.name,
-      run: async () => {
-        const result = await analyzer.run({
-          repositoryPath,
-          changedPaths,
-          timeoutMs: config.limits.analyzerTimeoutMs,
-          maxOutputBytes: config.limits.maxAnalyzerOutputBytes
-        });
-        return { findings: result.findings, scopeKeys: result.completedScopes };
-      }
-    });
-  }
-
-  const settled = await Promise.allSettled(tasks.map((task) => task.run()));
 
   const drafts: FindingDraft[] = [];
   const completeScopes = new Set<string>();
   const failures: Array<{ provider: string; message: string }> = [];
 
-  settled.forEach((result, index) => {
-    const task = tasks[index];
-    if (!task) {
-      return;
-    }
-    if (result.status === "fulfilled") {
-      drafts.push(...result.value.findings);
-      for (const scopeKey of result.value.scopeKeys) {
+  if (config.review.enabled) {
+    try {
+      const result = await modelProvider.review({
+        diff: reviewDiff,
+        contextFiles,
+        model: config.review.model,
+        language: config.review.language
+      });
+      drafts.push(...result.findings);
+      for (const scopeKey of result.scopeKeys) {
         completeScopes.add(scopeKey);
       }
-    } else {
-      failures.push({ provider: task.name, message: String(result.reason) });
+    } catch (error) {
+      failures.push({ provider: "llm", message: String(error) });
     }
-  });
+  }
 
   const currentFindings = deduplicateFindings(drafts.map((draft) => normalizeFinding(draft)));
 

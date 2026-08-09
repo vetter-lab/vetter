@@ -25,11 +25,8 @@ export const reviewConfigSchema = z.object({
     P2: severityRule,
     P3: severityRule
   }),
-  analyzers: z.array(z.enum(["semgrep", "eslint", "ruff", "golangci-lint"])),
   limits: z.object({
-    modelRetries: z.number().int().min(0).max(3),
-    analyzerTimeoutMs: z.number().int().positive(),
-    maxAnalyzerOutputBytes: z.number().int().positive()
+    modelRetries: z.number().int().min(0).max(3)
   })
 });
 

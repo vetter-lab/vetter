@@ -17,7 +17,7 @@ export function computeFingerprint(
 }
 
 /**
- * Providers can report the same logical finding more than once. Keep the
+ * The LLM can report the same logical finding more than once. Keep the
  * first normalized finding for a fingerprint so one review run cannot create
  * duplicate inline comments or summary rows.
  */

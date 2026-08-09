@@ -19,9 +19,9 @@ export interface EvaluateCheckRunInput {
 }
 
 /**
- * A provider failure always fails the Check Run: since `reconcileFindings`
- * never closes findings for an incomplete scope, a `success` conclusion
- * must mean every configured provider actually finished.
+ * An LLM failure always fails the Check Run: since `reconcileFindings` never
+ * closes findings for an incomplete scope, a `success` conclusion means the
+ * configured LLM review finished.
  */
 export function evaluateCheckRun(input: EvaluateCheckRunInput): CheckRunEvaluation {
   const labels = getReviewOutputLabels(input.language);

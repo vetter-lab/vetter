@@ -1,5 +1,9 @@
 # Source Structure and Prompt Maintenance Design
 
+> Status: superseded. This historical design predates the LLM-only review
+> pipeline; its analyzer integration sections are no longer part of Vetter's
+> implementation.
+
 - Date: 2026-08-07
 - Status: Pending user review
 - Scope: Reorganize the TypeScript source tree and split the review prompt into maintainable sections without changing runtime behavior.
