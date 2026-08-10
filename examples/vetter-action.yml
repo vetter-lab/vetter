@@ -22,5 +22,25 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           model-api-key: ${{ secrets.VETTER_MODEL_API_KEY }}
-          model-base-url: ${{ vars.VETTER_MODEL_BASE_URL }}
-          model-name: ${{ vars.VETTER_MODEL_NAME }}
+          config: |
+            version: 1
+            review:
+              enabled: true
+              incremental: true
+              model: gpt-5.6-luna
+              baseUrl: https://api.openai.com/v1
+              language: en
+              maxDiffBytes: 200000
+            events:
+              push:
+                enabled: true
+                requireOpenPullRequest: true
+                branchPatterns:
+                  - "**"
+            severity:
+              P0: { blockMerge: false }
+              P1: { blockMerge: false }
+              P2: { blockMerge: false }
+              P3: { blockMerge: false }
+            limits:
+              modelRetries: 2

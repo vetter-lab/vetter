@@ -8,7 +8,7 @@ Vetter runs as either a **GitHub App** (webhook-driven) or a **GitHub Action** (
 
 1. A pull request event or a push to a branch with an open PR triggers a review;
    resolving or reopening a review thread refreshes the summary from GitHub state.
-2. Vetter loads `.vetter.yml` from the repository, merges it with built-in defaults and any runtime-level overrides.
+2. Vetter loads optional `.vetter.yml` from the repository, merges it with the shared built-in defaults and runtime-level overrides. Action mode can supply the repository configuration inline in the workflow instead.
 3. It fetches the incremental diff, sends it to the configured LLM, and normalizes the returned findings.
 4. It re-reads the PR head SHA immediately before mutating anything; a stale or superseded run is discarded (latest-wins).
 5. It reconciles findings against existing Vetter-owned comments and threads: new findings get inline comments, fixed findings get their thread resolved, findings resolved by a human stay dismissed.
@@ -21,7 +21,7 @@ See [docs/configuration.md](docs/configuration.md) for the full `.vetter.yml` re
 - **GitHub App** — set up once per organization, works across all installed repositories without any workflow file. See [docs/github-app-setup.md](docs/github-app-setup.md).
 - **GitHub Action** — added per repository via a workflow file, uses the repository's own `GITHUB_TOKEN`. See [docs/action-setup.md](docs/action-setup.md).
 
-Only one runtime should be active for a given repository; if both are configured, set `runtime: app` or `runtime: action` in `.vetter.yml` to make the inactive one exit without writing comments.
+Only one runtime should be active for a given repository; if both are configured, set `runtime: app` or `runtime: action` in the applicable configuration to make the inactive one exit without writing comments.
 
 ## Development
 

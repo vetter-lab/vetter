@@ -37,15 +37,35 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           model-api-key: ${{ secrets.VETTER_MODEL_API_KEY }}
-          model-base-url: ${{ vars.VETTER_MODEL_BASE_URL }}
-          model-name: ${{ vars.VETTER_MODEL_NAME }}
+          config: |
+            version: 1
+            review:
+              enabled: true
+              incremental: true
+              model: gpt-4o-mini
+              baseUrl: https://api.openai.com/v1
+              language: en
+              maxDiffBytes: 200000
+            events:
+              push:
+                enabled: true
+                requireOpenPullRequest: true
+                branchPatterns:
+                  - "**"
+            severity:
+              P0: { blockMerge: false }
+              P1: { blockMerge: false }
+              P2: { blockMerge: false }
+              P3: { blockMerge: false }
+            limits:
+              modelRetries: 2
 ```
 
 ## 2. Required permissions
 
 The workflow's `permissions` block must grant:
 
-- `contents: read` — to read the repository diff and `.vetter.yml`.
+- `contents: read` — to read the repository diff and optional `.vetter.yml`.
 - `actions: read` — to let cancelled duplicate workflow runs stop before they write comments.
 - `pull-requests: write` — to create/update inline review comments, resolve
   and reopen review threads, and post the summary comment.
@@ -59,13 +79,16 @@ block above is present; no additional App installation is required.
 | Input | Source | Purpose |
 | --- | --- | --- |
 | `github-token` | `secrets.GITHUB_TOKEN` (or a PAT) | Required. All GitHub API calls. |
-| `model-api-key` | `secrets.VETTER_MODEL_API_KEY` | API key for the OpenAI-compatible review model. |
-| `model-base-url` | `vars.VETTER_MODEL_BASE_URL` | Optional model endpoint override. |
-| `model-name` | `vars.VETTER_MODEL_NAME` | Optional model name override, merged as `review.model`. |
+| `model-api-key` | `secrets.VETTER_MODEL_API_KEY` | Required API key for the OpenAI-compatible review model. |
+| `config` | workflow YAML | Optional inline YAML using every field in the configuration reference. It overrides `.vetter.yml`. |
+| `model` | workflow YAML | Optional direct override for `review.model`. |
+| `baseUrl` | workflow YAML | Optional direct override for `review.baseUrl`. |
 | `config-path` | workflow input | Optional path to the repository's config file. Defaults to `.vetter.yml`. |
 
 Model credentials should be stored as encrypted repository or organization
-secrets, never committed to `.vetter.yml`.
+secrets, never committed to workflow YAML or `.vetter.yml`. The workflow can
+be used alone, or together with `.vetter.yml`; when both exist, its `config`
+and direct inputs take precedence.
 
 ## 4. Concurrency
 

@@ -1,13 +1,31 @@
 # Configuration reference
 
-Vetter is configured by merging three layers, in this order (later layers
-win):
+Vetter uses one shared configuration shape in both runtimes. Its built-in
+defaults are maintained in [`src/config/defaults.ts`](../src/config/defaults.ts).
+Configuration is merged in this order (later layers win):
 
-1. **Built-in defaults** (hardcoded in `src/config/load.ts`).
-2. **Repository `.vetter.yml`** (checked out at the commit under review).
-3. **External overrides** — App mode's `VETTER_CONFIG_JSON` /
-   `VETTER_MODEL_NAME` env vars, or Action mode's `with:`/`vars:` workflow
-   inputs.
+1. **Built-in defaults**.
+2. **Repository `.vetter.yml`** (optional; read at the commit under review).
+3. **Runtime configuration** — App environment configuration, or Action
+   workflow `config` and direct inputs.
+
+For Action mode, `.vetter.yml` is optional. The workflow can run by itself:
+
+```yaml
+- uses: vetter-lab/vetter@main
+  with:
+    github-token: ${{ secrets.GITHUB_TOKEN }}
+    model-api-key: ${{ secrets.VETTER_MODEL_API_KEY }}
+    config: |
+      version: 1
+      review:
+        model: gpt-4o-mini
+        baseUrl: https://api.openai.com/v1
+```
+
+If both `config` in the workflow and `.vetter.yml` exist, workflow
+configuration wins. The direct Action inputs `model` and `baseUrl` also win
+over values with the same keys in workflow `config`.
 
 The merge is a deep merge (`src/config/merge.ts`): objects are merged
 key-by-key, arrays and scalars are replaced wholesale. The merged result is
@@ -28,6 +46,7 @@ review:
   enabled: true
   incremental: true
   model: gpt-4o-mini
+  baseUrl: https://api.openai.com/v1
   language: en
   maxDiffBytes: 200000
 
@@ -71,7 +90,8 @@ omitted, both runtimes are allowed to act.
 | --- | --- | --- | --- |
 | `enabled` | boolean | `true` | Whether the LLM provider runs at all. |
 | `incremental` | `true` (literal) | `true` | Reserved; must always be `true` — full-file review is not supported. |
-| `model` | string | `gpt-4o-mini` | Model name passed to the OpenAI-compatible provider. Can be overridden by `model-name` (Action) or `VETTER_MODEL_NAME` (App). |
+| `model` | string | `gpt-4o-mini` | Model name passed to the OpenAI-compatible provider. Can be overridden by the Action `model` input or `VETTER_MODEL_NAME` (App). |
+| `baseUrl` | URL | `https://api.openai.com/v1` | OpenAI-compatible model endpoint. Can be overridden by the Action `baseUrl` input or `VETTER_MODEL_BASE_URL` (App). |
 | `language` | string | `en` | Language for LLM finding titles and bodies, summary comments, and Check Run text. Use a locale such as `zh-CN`, `ja-JP`, or `en`. |
 | `maxDiffBytes` | positive integer | `200000` | Reserved cap on diff size sent to the model. |
 

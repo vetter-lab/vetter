@@ -1,10 +1,10 @@
 import * as core from "@actions/core";
 import * as github from "@actions/github";
-import { loadConfig } from "../../config/load.js";
 import { createOctokitGateway } from "../../integrations/github/octokit-gateway.js";
 import { createOpenAiCompatibleModelProvider } from "../../integrations/models/openai-compatible.js";
 import { runReview } from "../../review/application/run-review.js";
 import { normalizeActionEvent } from "./context.js";
+import { loadActionConfig } from "./config.js";
 
 const BOT_LOGIN = "github-actions[bot]";
 
@@ -22,9 +22,10 @@ function resolveConfigRef(eventName: string, payload: Record<string, unknown>, s
 
 async function run(): Promise<void> {
   const token = core.getInput("github-token", { required: true });
-  const modelApiKey = core.getInput("model-api-key");
-  const modelBaseUrl = core.getInput("model-base-url");
-  const modelName = core.getInput("model-name");
+  const modelApiKey = core.getInput("model-api-key", { required: true });
+  const model = core.getInput("model");
+  const baseUrl = core.getInput("baseUrl");
+  const workflowConfig = core.getInput("config");
   const configPath = core.getInput("config-path") || ".vetter.yml";
 
   const octokit = github.getOctokit(token);
@@ -42,8 +43,12 @@ async function run(): Promise<void> {
     path: configPath
   });
 
-  const external = modelName ? { review: { model: modelName } } : {};
-  const config = loadConfig({ repositoryText: repositoryYaml ?? "", external, runtime: "action" });
+  const config = loadActionConfig({
+    repositoryText: repositoryYaml ?? "",
+    workflowText: workflowConfig,
+    model,
+    baseUrl
+  });
 
   if (config.runtime && config.runtime !== "action") {
     core.info("runtime disabled by configuration; skipping");
@@ -71,7 +76,7 @@ async function run(): Promise<void> {
   const modelProvider = createOpenAiCompatibleModelProvider({
     apiKey: modelApiKey,
     maxRetries: config.limits.modelRetries,
-    ...(modelBaseUrl ? { baseURL: modelBaseUrl } : {})
+    baseURL: config.review.baseUrl
   });
 
   for (const context of contexts) {
