@@ -82,7 +82,7 @@ block above is present; no additional App installation is required.
 | `model-api-key` | `secrets.VETTER_MODEL_API_KEY` | Required API key for the OpenAI-compatible review model. |
 | `config` | workflow YAML | Optional inline YAML using every field in the configuration reference. It overrides `.vetter.yml`. |
 | `model` | workflow YAML | Optional direct override for `review.model`. |
-| `base-url` / `baseUrl` | workflow YAML | Optional direct override for `review.baseUrl`. |
+| `baseUrl` | workflow YAML | Optional direct override for `review.baseUrl`. |
 | `config-path` | workflow input | Optional path to the repository's config file. Defaults to `.vetter.yml`. |
 
 Model credentials should be stored as encrypted repository or organization

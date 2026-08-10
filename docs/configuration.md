@@ -24,9 +24,8 @@ For Action mode, `.vetter.yml` is optional. The workflow can run by itself:
 ```
 
 If both `config` in the workflow and `.vetter.yml` exist, workflow
-configuration wins. The direct Action inputs `model` and `base-url` also win
-over values with the same keys in workflow `config`; `model-name` and
-`model-base-url` remain supported as legacy aliases.
+configuration wins. The direct Action inputs `model` and `baseUrl` also win
+over values with the same keys in workflow `config`.
 
 The merge is a deep merge (`src/config/merge.ts`): objects are merged
 key-by-key, arrays and scalars are replaced wholesale. The merged result is
@@ -91,8 +90,8 @@ omitted, both runtimes are allowed to act.
 | --- | --- | --- | --- |
 | `enabled` | boolean | `true` | Whether the LLM provider runs at all. |
 | `incremental` | `true` (literal) | `true` | Reserved; must always be `true` — full-file review is not supported. |
-| `model` | string | `gpt-4o-mini` | Model name passed to the OpenAI-compatible provider. Can be overridden by `model-name` (Action) or `VETTER_MODEL_NAME` (App). |
-| `baseUrl` | URL | `https://api.openai.com/v1` | OpenAI-compatible model endpoint. Can be overridden by `base-url` (Action) or `VETTER_MODEL_BASE_URL` (App). |
+| `model` | string | `gpt-4o-mini` | Model name passed to the OpenAI-compatible provider. Can be overridden by the Action `model` input or `VETTER_MODEL_NAME` (App). |
+| `baseUrl` | URL | `https://api.openai.com/v1` | OpenAI-compatible model endpoint. Can be overridden by the Action `baseUrl` input or `VETTER_MODEL_BASE_URL` (App). |
 | `language` | string | `en` | Language for LLM finding titles and bodies, summary comments, and Check Run text. Use a locale such as `zh-CN`, `ja-JP`, or `en`. |
 | `maxDiffBytes` | positive integer | `200000` | Reserved cap on diff size sent to the model. |
 

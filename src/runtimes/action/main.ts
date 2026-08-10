@@ -23,8 +23,8 @@ function resolveConfigRef(eventName: string, payload: Record<string, unknown>, s
 async function run(): Promise<void> {
   const token = core.getInput("github-token", { required: true });
   const modelApiKey = core.getInput("model-api-key", { required: true });
-  const model = core.getInput("model") || core.getInput("model-name");
-  const baseUrl = core.getInput("baseUrl") || core.getInput("base-url") || core.getInput("model-base-url");
+  const model = core.getInput("model");
+  const baseUrl = core.getInput("baseUrl");
   const workflowConfig = core.getInput("config");
   const configPath = core.getInput("config-path") || ".vetter.yml";
 

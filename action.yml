@@ -12,17 +12,8 @@ inputs:
   model:
     description: "Model name; overrides review.model in config."
     required: false
-  base-url:
-    description: "OpenAI-compatible model endpoint; overrides review.baseUrl in config."
-    required: false
   baseUrl:
-    description: "Alias for base-url."
-    required: false
-  model-base-url:
-    description: "Legacy alias for base-url."
-    required: false
-  model-name:
-    description: "Legacy alias for model."
+    description: "OpenAI-compatible model endpoint; overrides review.baseUrl in config."
     required: false
   config:
     description: "Optional YAML configuration merged above the repository config file."

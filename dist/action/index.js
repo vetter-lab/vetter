@@ -31126,7 +31126,7 @@ class Document {
             replacer = undefined;
         }
         const { aliasDuplicateObjects, anchorPrefix, flow, keepUndefined, onTagObj, tag } = options ?? {};
-        const { onAnchor, setAnchors, sourceObjects } = anchors.createNodeAnchors(this, 
+        const { onAnchor, setAnchors, sourceObjects } = anchors.createNodeAnchors(this,
         // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
         anchorPrefix || 'a');
         const ctx = {
@@ -37804,7 +37804,7 @@ exports.visitAsync = visitAsync;
 /************************************************************************/
 /******/ // The module cache
 /******/ var __webpack_module_cache__ = {};
-/******/ 
+/******/
 /******/ // The require function
 /******/ function __nccwpck_require__(moduleId) {
 /******/ 	// Check if module is in cache
@@ -37818,7 +37818,7 @@ exports.visitAsync = visitAsync;
 /******/ 		// no module.loaded needed
 /******/ 		exports: {}
 /******/ 	};
-/******/ 
+/******/
 /******/ 	// Execute the module function
 /******/ 	var threw = true;
 /******/ 	try {
@@ -37827,11 +37827,11 @@ exports.visitAsync = visitAsync;
 /******/ 	} finally {
 /******/ 		if(threw) delete __webpack_module_cache__[moduleId];
 /******/ 	}
-/******/ 
+/******/
 /******/ 	// Return the exports of the module
 /******/ 	return module.exports;
 /******/ }
-/******/ 
+/******/
 /************************************************************************/
 /******/ /* webpack/runtime/compat get default export */
 /******/ (() => {
@@ -37844,7 +37844,7 @@ exports.visitAsync = visitAsync;
 /******/ 		return getter;
 /******/ 	};
 /******/ })();
-/******/ 
+/******/
 /******/ /* webpack/runtime/define property getters */
 /******/ (() => {
 /******/ 	// define getter functions for harmony exports
@@ -37856,16 +37856,16 @@ exports.visitAsync = visitAsync;
 /******/ 		}
 /******/ 	};
 /******/ })();
-/******/ 
+/******/
 /******/ /* webpack/runtime/hasOwnProperty shorthand */
 /******/ (() => {
 /******/ 	__nccwpck_require__.o = (obj, prop) => (Object.prototype.hasOwnProperty.call(obj, prop))
 /******/ })();
-/******/ 
+/******/
 /******/ /* webpack/runtime/compat */
-/******/ 
+/******/
 /******/ if (typeof __nccwpck_require__ !== 'undefined') __nccwpck_require__.ab = new URL('.', import.meta.url).pathname.slice(import.meta.url.match(/^file:\/\/\/\w:/) ? 1 : 0, -1) + "/";
-/******/ 
+/******/
 /************************************************************************/
 var __webpack_exports__ = {};
 
@@ -38954,8 +38954,8 @@ class oidc_utils_OidcClient {
             const res = yield httpclient
                 .getJson(id_token_url)
                 .catch(error => {
-                throw new Error(`Failed to get ID Token. \n 
-        Error Code : ${error.statusCode}\n 
+                throw new Error(`Failed to get ID Token. \n
+        Error Code : ${error.statusCode}\n
         Error Message: ${error.message}`);
             });
             const id_token = (_a = res.result) === null || _a === void 0 ? void 0 : _a.value;
@@ -47142,7 +47142,7 @@ function inner_stringify(object, prefix, generateArrayPrefix, commaRoundTrip, al
     }
     for (let j = 0; j < obj_keys.length; ++j) {
         const key = obj_keys[j];
-        const value = 
+        const value =
         // @ts-ignore
         typeof key === 'object' && typeof key.value !== 'undefined' ? key.value : obj[key];
         if (skipNulls && value === null) {
@@ -47158,7 +47158,7 @@ function inner_stringify(object, prefix, generateArrayPrefix, commaRoundTrip, al
         sideChannel.set(object, step);
         const valueSideChannel = new WeakMap();
         valueSideChannel.set(sentinel, sideChannel);
-        push_to_array(values, inner_stringify(value, key_prefix, generateArrayPrefix, commaRoundTrip, allowEmptyArrays, strictNullHandling, skipNulls, encodeDotInKeys, 
+        push_to_array(values, inner_stringify(value, key_prefix, generateArrayPrefix, commaRoundTrip, allowEmptyArrays, strictNullHandling, skipNulls, encodeDotInKeys,
         // @ts-ignore
         generateArrayPrefix === 'comma' && encodeValuesOnly && values_isArray(obj) ? null : encoder, filter, sort, allowDots, serializeDate, format, formatter, encodeValuesOnly, charset, valueSideChannel));
     }
@@ -47263,7 +47263,7 @@ function stringify(object, opts = {}) {
         if (options.skipNulls && obj[key] === null) {
             continue;
         }
-        push_to_array(keys, inner_stringify(obj[key], key, 
+        push_to_array(keys, inner_stringify(obj[key], key,
         // @ts-expect-error
         generateArrayPrefix, commaRoundTrip, options.allowEmptyArrays, options.strictNullHandling, options.skipNulls, options.encodeDotInKeys, options.encode ? options.encoder : null, options.filter, options.sort, options.allowDots, options.serializeDate, options.format, options.formatter, options.encodeValuesOnly, options.charset, sideChannel));
     }
@@ -58342,7 +58342,7 @@ class OpenAI {
         catch (err) {
             if (err instanceof error_OpenAIError)
                 throw err;
-            throw new error_OpenAIError(`Failed to get token from 'apiKey' function: ${err.message}`, 
+            throw new error_OpenAIError(`Failed to get token from 'apiKey' function: ${err.message}`,
             // @ts-ignore
             { cause: err });
         }
@@ -60197,7 +60197,7 @@ const $ZodCheckGreaterThan = /*@__PURE__*/ $constructor("$ZodCheckGreaterThan", 
         });
     };
 });
-const $ZodCheckMultipleOf = 
+const $ZodCheckMultipleOf =
 /*@__PURE__*/ $constructor("$ZodCheckMultipleOf", (inst, def) => {
     $ZodCheck.init(inst, def);
     inst._zod.onattach.push((inst) => {
@@ -61932,7 +61932,7 @@ const $ZodObjectJIT = /*@__PURE__*/ $constructor("$ZodObjectJIT", (inst, def) =>
             })));
           }
         }
-        
+
         if (${id}.value === undefined) {
           if (${k} in input) {
             newResult[${k}] = undefined;
@@ -61940,7 +61940,7 @@ const $ZodObjectJIT = /*@__PURE__*/ $constructor("$ZodObjectJIT", (inst, def) =>
         } else {
           newResult[${k}] = ${id}.value;
         }
-        
+
       `);
             }
             else if (!isOptionalIn) {
@@ -61979,7 +61979,7 @@ const $ZodObjectJIT = /*@__PURE__*/ $constructor("$ZodObjectJIT", (inst, def) =>
             path: iss.path ? [${k}, ...iss.path] : [${k}]
           })));
         }
-        
+
         if (${id}.value === undefined) {
           if (${k} in input) {
             newResult[${k}] = undefined;
@@ -61987,7 +61987,7 @@ const $ZodObjectJIT = /*@__PURE__*/ $constructor("$ZodObjectJIT", (inst, def) =>
         } else {
           newResult[${k}] = ${id}.value;
         }
-        
+
       `);
             }
         }
@@ -62150,7 +62150,7 @@ const $ZodXor = /*@__PURE__*/ (/* unused pure expression or super */ null && (co
         });
     };
 })));
-const $ZodDiscriminatedUnion = 
+const $ZodDiscriminatedUnion =
 /*@__PURE__*/
 (/* unused pure expression or super */ null && (core.$constructor("$ZodDiscriminatedUnion", (inst, def) => {
     def.inclusive = false;
@@ -68348,8 +68348,8 @@ function resolveConfigRef(eventName, payload, sha) {
 async function run() {
     const token = getInput("github-token", { required: true });
     const modelApiKey = getInput("model-api-key", { required: true });
-    const model = getInput("model") || getInput("model-name");
-    const baseUrl = getInput("baseUrl") || getInput("base-url") || getInput("model-base-url");
+    const model = getInput("model");
+    const baseUrl = getInput("baseUrl");
     const workflowConfig = getInput("config");
     const configPath = getInput("config-path") || ".vetter.yml";
     const octokit = getOctokit(token);

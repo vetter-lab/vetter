@@ -864,7 +864,7 @@ Use `@actions/github` context and the shared gateway to convert event payloads i
 
 `main.ts` must:
 
-1. Read `github-token`, `model-api-key`, `model-base-url`, `model-name`, and `config-path` with `@actions/core`.
+1. Read `github-token`, `model-api-key`, `model`, `baseUrl`, and `config-path` with `@actions/core`.
 2. Load `.vetter.yml` from `config-path`, then merge Action `vars` overrides.
 3. Build the token gateway, providers, and review service.
 4. Normalize the current event.
@@ -908,8 +908,8 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           model-api-key: ${{ secrets.VETTER_MODEL_API_KEY }}
-          model-base-url: ${{ vars.VETTER_MODEL_BASE_URL }}
-          model-name: ${{ vars.VETTER_MODEL_NAME }}
+          baseUrl: ${{ vars.VETTER_MODEL_BASE_URL }}
+          model: ${{ vars.VETTER_MODEL_NAME }}
 ```
 
 - [ ] **Step 6: Build and test the Action bundle**
