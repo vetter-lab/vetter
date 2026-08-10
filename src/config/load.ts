@@ -1,5 +1,6 @@
 import YAML from "yaml";
 import type { RuntimeMode } from "./types.js";
+import { builtInDefaults, defaultConfig } from "./defaults.js";
 import { deepMerge } from "./merge.js";
 import { migrateSeverityConfigLayer } from "./migrate.js";
 import { assertNoSecretKeys, reviewConfigSchema, type ReviewConfig } from "./schema.js";
@@ -11,42 +12,10 @@ export interface ConfigInput {
 }
 
 /**
- * Built-in defaults applied before any repository or external override.
- * `events.push.requireOpenPullRequest` is fixed to `true` here and is
- * re-checked explicitly below so no configuration layer can turn it off.
+ * Parses user-supplied YAML text into a plain object, rejecting non-object
+ * roots and any secret-shaped keys.
  */
-export const builtInDefaults = {
-  version: 1,
-  review: {
-    enabled: true,
-    incremental: true,
-    model: "gpt-4o-mini",
-    language: "en",
-    maxDiffBytes: 200_000
-  },
-  events: {
-    push: {
-      enabled: true,
-      requireOpenPullRequest: true,
-      branchPatterns: ["**"]
-    }
-  },
-  severity: {
-    P0: { blockMerge: false },
-    P1: { blockMerge: false },
-    P2: { blockMerge: false },
-    P3: { blockMerge: false }
-  },
-  limits: {
-    modelRetries: 2
-  }
-};
-
-/**
- * Parses repository-supplied `.vetter.yml` text into a plain object,
- * rejecting non-object YAML roots and any secret-shaped keys.
- */
-export function parseRepositoryYaml(text: string): Record<string, unknown> {
+export function parseConfigYaml(text: string): Record<string, unknown> {
   if (text.trim().length === 0) {
     return {};
   }
@@ -58,7 +27,7 @@ export function parseRepositoryYaml(text: string): Record<string, unknown> {
   }
 
   if (typeof parsed !== "object" || Array.isArray(parsed)) {
-    throw new Error("repository configuration YAML must parse to a mapping (object) at the root");
+    throw new Error("configuration YAML must parse to a mapping (object) at the root");
   }
 
   assertNoSecretKeys(parsed);
@@ -67,10 +36,9 @@ export function parseRepositoryYaml(text: string): Record<string, unknown> {
 }
 
 export function loadConfig(input: ConfigInput): ReviewConfig {
-  const defaults = builtInDefaults;
-  const repository = migrateSeverityConfigLayer(parseRepositoryYaml(input.repositoryText ?? ""));
+  const repository = migrateSeverityConfigLayer(parseConfigYaml(input.repositoryText ?? ""));
   const external = migrateSeverityConfigLayer(input.external ?? {});
-  const merged = deepMerge(defaults, repository, external) as Record<string, unknown>;
+  const merged = deepMerge(defaultConfig, repository, external) as Record<string, unknown>;
 
   const events = merged.events as { push?: { requireOpenPullRequest?: unknown } } | undefined;
   if (events?.push?.requireOpenPullRequest !== true) {
@@ -87,3 +55,8 @@ export function loadConfig(input: ConfigInput): ReviewConfig {
 
   return parsed;
 }
+
+/** @deprecated Use parseConfigYaml for repository and workflow configuration. */
+export const parseRepositoryYaml = parseConfigYaml;
+
+export { builtInDefaults };

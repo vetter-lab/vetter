@@ -37,7 +37,7 @@ deployment platform) and fill in:
 | `VETTER_PRIVATE_KEY` | The App's PEM private key, used to sign the JWT for installation authentication. Never log this value. |
 | `VETTER_CONFIG_JSON` | Optional JSON object keyed by `owner/repo`, merged on top of each repository's `.vetter.yml` as the external configuration layer. Defaults to `{}`. |
 | `VETTER_MODEL_API_KEY` | API key for the OpenAI-compatible review model. |
-| `VETTER_MODEL_BASE_URL` | Optional base URL override for the model endpoint. |
+| `VETTER_MODEL_BASE_URL` | Optional base URL override for `review.baseUrl`. |
 | `VETTER_MODEL_NAME` | Optional model name override, merged into every repository's configuration as `review.model`. |
 | `PORT` | Port the Fastify server listens on. Defaults to `3000`. |
 

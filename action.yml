@@ -8,12 +8,24 @@ inputs:
     required: true
   model-api-key:
     description: "API key for the OpenAI-compatible review model."
+    required: true
+  model:
+    description: "Model name; overrides review.model in config."
+    required: false
+  base-url:
+    description: "OpenAI-compatible model endpoint; overrides review.baseUrl in config."
+    required: false
+  baseUrl:
+    description: "Alias for base-url."
     required: false
   model-base-url:
-    description: "Base URL for the OpenAI-compatible review model endpoint."
+    description: "Legacy alias for base-url."
     required: false
   model-name:
-    description: "Model name to use for review; overrides the model configured in .vetter.yml."
+    description: "Legacy alias for model."
+    required: false
+  config:
+    description: "Optional YAML configuration merged above the repository config file."
     required: false
   config-path:
     description: "Path to the repository's Vetter configuration file."

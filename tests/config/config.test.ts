@@ -1,7 +1,21 @@
 import { describe, expect, it } from "vitest";
-import { loadConfig } from "../../src/config/load.js";
+import { defaultConfig } from "../../src/config/defaults.js";
+import { loadConfig, parseConfigYaml } from "../../src/config/load.js";
 
 describe("loadConfig", () => {
+  it("uses the shared built-in provider defaults", () => {
+    const result = loadConfig({});
+
+    expect(result.review.model).toBe(defaultConfig.review.model);
+    expect(result.review.baseUrl).toBe(defaultConfig.review.baseUrl);
+  });
+
+  it("parses workflow configuration using the same YAML shape as repository config", () => {
+    expect(parseConfigYaml("review:\n  baseUrl: https://example.com/v1\n")).toEqual({
+      review: { baseUrl: "https://example.com/v1" }
+    });
+  });
+
   it("merges defaults, repository config, and external overrides in that order", () => {
     const result = loadConfig({
       repositoryText: "review:\n  model: repo-model\n",
@@ -11,6 +25,7 @@ describe("loadConfig", () => {
     expect(result.review.model).toBe("external-model");
     expect(result.review.incremental).toBe(true);
     expect(result.review.language).toBe("en");
+    expect(result.review.baseUrl).toBe(defaultConfig.review.baseUrl);
     expect(result.severity.P1.blockMerge).toBe(false);
   });
 

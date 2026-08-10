@@ -35,7 +35,7 @@ function requireEnv(name: string): string {
 const VETTER_WEBHOOK_SECRET = requireEnv("VETTER_WEBHOOK_SECRET");
 const VETTER_APP_ID = requireEnv("VETTER_APP_ID");
 const VETTER_PRIVATE_KEY = requireEnv("VETTER_PRIVATE_KEY");
-const VETTER_MODEL_API_KEY = process.env.VETTER_MODEL_API_KEY ?? "";
+const VETTER_MODEL_API_KEY = requireEnv("VETTER_MODEL_API_KEY");
 const VETTER_MODEL_BASE_URL = process.env.VETTER_MODEL_BASE_URL;
 const VETTER_MODEL_NAME = process.env.VETTER_MODEL_NAME;
 const PORT = Number(process.env.PORT ?? "3000");
@@ -81,7 +81,7 @@ async function runContextReview(input: {
   const modelProvider = createOpenAiCompatibleModelProvider({
     apiKey: VETTER_MODEL_API_KEY,
     maxRetries: config.limits.modelRetries,
-    ...(VETTER_MODEL_BASE_URL ? { baseURL: VETTER_MODEL_BASE_URL } : {})
+    baseURL: config.review.baseUrl
   });
 
   await runReview({
@@ -170,8 +170,11 @@ async function main(): Promise<void> {
         : null;
 
       const repoKey = `${repository.owner.login}/${repository.name}`;
-      const envOverride = VETTER_MODEL_NAME ? { review: { model: VETTER_MODEL_NAME } } : {};
-      const external = deepMerge(envOverride, perRepositoryConfig[repoKey] ?? {});
+      const envOverride = deepMerge(
+        VETTER_MODEL_NAME ? { review: { model: VETTER_MODEL_NAME } } : {},
+        VETTER_MODEL_BASE_URL ? { review: { baseUrl: VETTER_MODEL_BASE_URL } } : {}
+      );
+      const external = deepMerge(perRepositoryConfig[repoKey] ?? {}, envOverride);
 
       const config = loadConfig({ repositoryText: repositoryYaml ?? "", external, runtime: "app" });
 

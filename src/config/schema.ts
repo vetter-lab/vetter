@@ -9,6 +9,7 @@ export const reviewConfigSchema = z.object({
     enabled: z.boolean(),
     incremental: z.literal(true),
     model: z.string().min(1),
+    baseUrl: z.string().trim().min(1).url(),
     language: z.string().trim().min(1).max(64).regex(/^[^\r\n]+$/),
     maxDiffBytes: z.number().int().positive()
   }),
@@ -33,7 +34,8 @@ export const reviewConfigSchema = z.object({
 export type ReviewConfig = z.infer<typeof reviewConfigSchema>;
 
 /**
- * Repository-supplied `.vetter.yml` must never carry provider secrets.
+ * User-supplied repository and workflow configuration must never carry
+ * provider secrets.
  * Any key that looks like it holds a credential is rejected outright so
  * that secrets stay in runtime environment variables instead.
  */
