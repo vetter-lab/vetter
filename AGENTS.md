@@ -161,3 +161,11 @@ The final report to the user should include:
 
 Do not merge, close, approve, or request reviewers unless the user explicitly
 asks for those actions.
+
+## 7. Generated Distribution Files
+
+Whenever source code is changed, rebuild the project and update the generated
+files under `dist` before committing. For Action changes, `dist/action/index.js`
+must be regenerated with `pnpm build:action`; for App changes, regenerate the
+App distribution as part of `pnpm build`. Verify that the generated files are
+included in the final diff.
