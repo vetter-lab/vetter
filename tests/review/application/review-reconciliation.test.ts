@@ -40,6 +40,7 @@ it("refreshes manual dismissal and fixes an outdated finding in one commit run",
   const fixed = finding("fixed-rule", "Already fixed");
   let summaryBody = "";
   const resolvedThreads: string[] = [];
+  const updatedComments: Array<{ commentId: number; body: string }> = [];
   const gateway: GitHubGateway = {
     async getPullRequest() {
       return {
@@ -85,7 +86,13 @@ it("refreshes manual dismissal and fixes an outdated finding in one commit run",
             comments: [
               {
                 commentId: 2,
-                body: existingMarker(fixed, false),
+                body: [
+                  `**[${fixed.severity}] ${fixed.title}**`,
+                  "",
+                  `${fixed.title} body`,
+                  "",
+                  existingMarker(fixed, false)
+                ].join("\n"),
                 path: fixed.path,
                 line: null,
                 originalLine: 2,
@@ -103,7 +110,9 @@ it("refreshes manual dismissal and fixes an outdated finding in one commit run",
     async createReview() {
       return [];
     },
-    async updateReviewComment() {},
+    async updateReviewComment(input) {
+      updatedComments.push(input);
+    },
     async createIssueComment(input) {
       summaryBody = input.body;
       return { commentId: 3 };
@@ -141,6 +150,20 @@ it("refreshes manual dismissal and fixes an outdated finding in one commit run",
 
   expect(result.status).toBe("completed");
   expect(resolvedThreads).toEqual(["fixed-thread"]);
+  expect(updatedComments).toEqual([
+    {
+      commentId: 2,
+      owner: "owner",
+      repo: "repo",
+      body: [
+        `**[${fixed.severity}] ${fixed.title}**`,
+        "",
+        `${fixed.title} body`,
+        "",
+        existingMarker(fixed, true)
+      ].join("\n")
+    }
+  ]);
   const rows = parseSummaryRowMarkers(summaryBody);
   expect(rows.find((row) => row.fingerprint === computeFingerprint(manual))).toEqual(
     expect.objectContaining({ line: 2, state: "dismissed" })

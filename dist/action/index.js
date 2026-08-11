@@ -45522,6 +45522,38 @@ function getOctokit(token, options, ...additionalPlugins) {
     return new GitHubWithPlugins(getOctokitOptions(token, options));
 }
 //# sourceMappingURL=github.js.map
+;// CONCATENATED MODULE: ./src/review/domain/findings/title.ts
+const MAX_TITLE_WORDS = 10;
+const MAX_TITLE_LENGTH = 96;
+const ELLIPSIS = "...";
+/**
+ * Keeps user-visible finding titles useful in compact comment tables while
+ * leaving the original title available for the hidden finding marker.
+ */
+function shortenFindingTitle(title) {
+    const normalized = title.trim().replace(/\s+/g, " ");
+    if (normalized.length === 0) {
+        return "Finding";
+    }
+    const words = normalized.split(" ");
+    if (words.length <= MAX_TITLE_WORDS && normalized.length <= MAX_TITLE_LENGTH) {
+        return normalized;
+    }
+    const maxPrefixLength = MAX_TITLE_LENGTH - ELLIPSIS.length;
+    let prefix = "";
+    for (const word of words.slice(0, MAX_TITLE_WORDS - 1)) {
+        const candidate = prefix.length === 0 ? word : `${prefix} ${word}`;
+        if (candidate.length > maxPrefixLength) {
+            break;
+        }
+        prefix = candidate;
+    }
+    if (prefix.length === 0) {
+        prefix = normalized.slice(0, maxPrefixLength).trimEnd();
+    }
+    return `${prefix}${ELLIPSIS}`;
+}
+
 ;// CONCATENATED MODULE: ./src/review/domain/severity.ts
 const SEVERITIES = ["P0", "P1", "P2", "P3"];
 const LEGACY_SEVERITY_ALIASES = {
@@ -45540,6 +45572,7 @@ function parseSeverity(value) {
 }
 
 ;// CONCATENATED MODULE: ./src/review/domain/reconciliation/markers.ts
+
 
 const FINDING_MARKER_PATTERN = /<!--\s*vetter:finding:v2\s+fingerprint="([^"]*)"\s+rule="([^"]*)"\s+severity="([^"]*)"\s+source="([^"]*)"\s+scope="([^"]*)"\s+title="([^"]*)"\s+anchor="([^"]*)"\s+bot-resolved="(true|false)"\s*-->/;
 const SUMMARY_MARKER_PATTERN = /<!--\s*vetter:summary:v1\s*-->/;
@@ -45602,6 +45635,21 @@ function parseFindingMarker(body) {
         codeAnchor: unescapeAttr(codeAnchor),
         botResolved: botResolved === "true"
     };
+}
+/**
+ * Extracts the finding-specific body from a rendered inline comment. The
+ * persisted GitHub comment contains the visible title and marker in addition
+ * to the model body; keeping those presentation details out of ExistingFinding
+ * prevents a fixed comment from rendering them a second time.
+ */
+function extractFindingBody(body, marker) {
+    const markerStart = body.search(/<!--\s*vetter:finding:v2\b/);
+    let findingBody = (markerStart === -1 ? body : body.slice(0, markerStart)).trim();
+    const renderedTitle = `**[${marker.severity.toUpperCase()}] ${shortenFindingTitle(marker.title)}**`;
+    while (findingBody.startsWith(renderedTitle)) {
+        findingBody = findingBody.slice(renderedTitle.length).trimStart();
+    }
+    return findingBody.trimEnd();
 }
 function isFindingComment(body) {
     return parseFindingMarker(body) !== null;
@@ -67442,38 +67490,6 @@ function relocateExistingFindings(input) {
     return { findings, reviewedFingerprints };
 }
 
-;// CONCATENATED MODULE: ./src/review/domain/findings/title.ts
-const MAX_TITLE_WORDS = 10;
-const MAX_TITLE_LENGTH = 96;
-const ELLIPSIS = "...";
-/**
- * Keeps user-visible finding titles useful in compact comment tables while
- * leaving the original title available for the hidden finding marker.
- */
-function shortenFindingTitle(title) {
-    const normalized = title.trim().replace(/\s+/g, " ");
-    if (normalized.length === 0) {
-        return "Finding";
-    }
-    const words = normalized.split(" ");
-    if (words.length <= MAX_TITLE_WORDS && normalized.length <= MAX_TITLE_LENGTH) {
-        return normalized;
-    }
-    const maxPrefixLength = MAX_TITLE_LENGTH - ELLIPSIS.length;
-    let prefix = "";
-    for (const word of words.slice(0, MAX_TITLE_WORDS - 1)) {
-        const candidate = prefix.length === 0 ? word : `${prefix} ${word}`;
-        if (candidate.length > maxPrefixLength) {
-            break;
-        }
-        prefix = candidate;
-    }
-    if (prefix.length === 0) {
-        prefix = normalized.slice(0, maxPrefixLength).trimEnd();
-    }
-    return `${prefix}${ELLIPSIS}`;
-}
-
 ;// CONCATENATED MODULE: ./src/review/domain/reporting/summary.ts
 
 
@@ -67668,7 +67684,7 @@ function toExistingFindings(snapshot, botLogins) {
                 scopeKey: marker.scopeKey,
                 severity: marker.severity,
                 title: marker.title,
-                body: comment.body,
+                body: extractFindingBody(comment.body, marker),
                 path: comment.path,
                 codeAnchor: marker.codeAnchor,
                 line: comment.line ?? comment.originalLine,
