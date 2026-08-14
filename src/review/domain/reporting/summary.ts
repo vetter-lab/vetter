@@ -12,6 +12,7 @@ const SEVERITY_ORDER = Object.fromEntries(SEVERITIES.map((severity, index) => [s
  * a real API rejection.
  */
 const MAX_COMMENT_LENGTH = 60_000;
+const VETTER_LOGO_URL = "https://cdn.jsdelivr.net/gh/vetter-lab/vetter/logos/logo.png";
 
 export interface RenderSummaryInput {
   rows: SummaryRow[];
@@ -92,6 +93,10 @@ function renderSummaryRowMarkers(rows: SummaryRow[]): string[] {
     );
 }
 
+function renderSummaryTitle(title: string): string {
+  return `## <img src="${VETTER_LOGO_URL}" alt="Vetter logo" width="24" /> ${title}`;
+}
+
 /**
  * Rebuilds the whole Vetter summary comment from this run's reconciled
  * rows. There is no partial edit: every run replaces the full body, which
@@ -107,7 +112,7 @@ export function renderSummaryComment(input: RenderSummaryInput): string {
     SUMMARY_MARKER,
     ...persistedSummaryRows,
     "",
-    `## ${labels.summaryTitle}`,
+    renderSummaryTitle(labels.summaryTitle),
     "",
     renderTable(sorted, input, false)
   ].join("\n");
@@ -119,7 +124,7 @@ export function renderSummaryComment(input: RenderSummaryInput): string {
     SUMMARY_MARKER,
     ...persistedSummaryRows,
     "",
-    `## ${labels.summaryTitle}`,
+    renderSummaryTitle(labels.summaryTitle),
     "",
     renderTable(sorted, input, true)
   ].join("\n");

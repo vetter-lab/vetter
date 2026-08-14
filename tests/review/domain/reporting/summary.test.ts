@@ -17,6 +17,20 @@ function row(severity: Severity, path: string, overrides?: Partial<SummaryRow>):
 }
 
 describe("renderSummaryComment", () => {
+  it("renders the Vetter logo to the left of the summary title", () => {
+    const body = renderSummaryComment({
+      rows: [],
+      owner: "owner",
+      repo: "repo",
+      pullRequestNumber: 1,
+      headSha: "head-sha"
+    });
+
+    expect(body).toContain(
+      '## <img src="https://cdn.jsdelivr.net/gh/vetter-lab/vetter/logos/logo.png" alt="Vetter logo" width="24" /> Vetter review summary'
+    );
+  });
+
   it("sorts rows from P0 to P3", () => {
     const body = renderSummaryComment({
       rows: [row("P3", "p3.ts"), row("P1", "p1.ts"), row("P0", "p0.ts"), row("P2", "p2.ts")],
@@ -124,7 +138,9 @@ describe("renderSummaryComment", () => {
       language: "zh-CN"
     });
 
-    expect(body).toContain("## Vetter 审查摘要");
+    expect(body).toContain(
+      '## <img src="https://cdn.jsdelivr.net/gh/vetter-lab/vetter/logos/logo.png" alt="Vetter logo" width="24" /> Vetter 审查摘要'
+    );
     expect(body).toContain("| 严重程度 | 状态 | 文件 | 标题 |");
     expect(body).toContain("🔴 待处理");
   });
