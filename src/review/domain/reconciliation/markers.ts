@@ -1,4 +1,5 @@
 import type { FindingState, ReviewSource, Severity } from "../types.js";
+import { shortenFindingTitle } from "../findings/title.js";
 import { parseSeverity } from "../severity.js";
 
 const FINDING_MARKER_PATTERN =
@@ -95,6 +96,24 @@ export function parseFindingMarker(body: string): FindingMarkerFields | null {
     codeAnchor: unescapeAttr(codeAnchor),
     botResolved: botResolved === "true"
   };
+}
+
+/**
+ * Extracts the finding-specific body from a rendered inline comment. The
+ * persisted GitHub comment contains the visible title and marker in addition
+ * to the model body; keeping those presentation details out of ExistingFinding
+ * prevents a fixed comment from rendering them a second time.
+ */
+export function extractFindingBody(body: string, marker: FindingMarkerFields): string {
+  const markerStart = body.search(/<!--\s*vetter:finding:v2\b/);
+  let findingBody = (markerStart === -1 ? body : body.slice(0, markerStart)).trim();
+  const renderedTitle = `**[${marker.severity.toUpperCase()}] ${shortenFindingTitle(marker.title)}**`;
+
+  while (findingBody.startsWith(renderedTitle)) {
+    findingBody = findingBody.slice(renderedTitle.length).trimStart();
+  }
+
+  return findingBody.trimEnd();
 }
 
 export function isFindingComment(body: string): boolean {

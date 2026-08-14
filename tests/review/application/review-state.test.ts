@@ -16,6 +16,47 @@ function marker(botResolved: boolean): string {
 }
 
 describe("toExistingFindings", () => {
+  it("extracts the model body without the rendered title or markers", () => {
+    const findingBody = "The lockfile should use pinned package versions.";
+    const renderedBody = [
+      "**[P1] Same finding**",
+      "",
+      "**[P1] Same finding**",
+      "",
+      findingBody,
+      "",
+      marker(false),
+      "",
+      marker(true)
+    ].join("\n");
+
+    const findings = toExistingFindings(
+      {
+        reviewThreads: [
+          {
+            threadId: "fixed-thread",
+            isResolved: true,
+            resolvedByLogin: "github-actions[bot]",
+            comments: [
+              {
+                commentId: 1,
+                body: renderedBody,
+                path: "src/example.ts",
+                line: 2,
+                originalLine: 2,
+                authorLogin: "github-actions[bot]"
+              }
+            ]
+          }
+        ],
+        issueComments: []
+      },
+      new Set(["github-actions[bot]"])
+    );
+
+    expect(findings[0]?.body).toBe(findingBody);
+  });
+
   it("prefers a human-dismissed duplicate over an open duplicate", () => {
     const findings = toExistingFindings(
       {

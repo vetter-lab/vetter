@@ -1,5 +1,5 @@
 import type { ReviewStateSnapshot } from "../../integrations/github/types.js";
-import { parseFindingMarker } from "../domain/reconciliation/markers.js";
+import { extractFindingBody, parseFindingMarker } from "../domain/reconciliation/markers.js";
 import { wasResolvedByBot } from "../domain/reconciliation/reconcile.js";
 import type { ExistingFinding, FindingState } from "../domain/types.js";
 
@@ -29,7 +29,7 @@ export function toExistingFindings(snapshot: ReviewStateSnapshot, botLogins: Set
         scopeKey: marker.scopeKey,
         severity: marker.severity,
         title: marker.title,
-        body: comment.body,
+        body: extractFindingBody(comment.body, marker),
         path: comment.path,
         codeAnchor: marker.codeAnchor,
         line: comment.line ?? comment.originalLine,
