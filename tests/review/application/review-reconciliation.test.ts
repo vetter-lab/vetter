@@ -3,6 +3,7 @@ import { loadConfig } from "../../../src/config/load.js";
 import type { GitHubGateway } from "../../../src/integrations/github/gateway.js";
 import { parseSummaryRowMarkers, buildFindingMarker } from "../../../src/review/domain/reconciliation/markers.js";
 import { computeFingerprint } from "../../../src/review/domain/findings/fingerprint.js";
+import { renderFindingTitle } from "../../../src/review/domain/findings/title.js";
 import { runReview } from "../../../src/review/application/run-review.js";
 import type { FindingDraft } from "../../../src/review/domain/types.js";
 
@@ -156,7 +157,7 @@ it("refreshes manual dismissal and fixes an outdated finding in one commit run",
       owner: "owner",
       repo: "repo",
       body: [
-        `**[${fixed.severity}] ${fixed.title}**`,
+        renderFindingTitle(fixed.severity, fixed.title),
         "",
         `${fixed.title} body`,
         "",
