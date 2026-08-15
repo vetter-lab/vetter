@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildFindingMarker,
   buildSummaryRowMarker,
+  extractFindingBody,
   isFindingComment,
   parseFindingMarker,
   parseSummaryRowMarkers
@@ -46,6 +47,15 @@ describe("finding markers", () => {
     const marker = buildFindingMarker(fields).replace('severity="P0"', 'severity="blocker"');
     expect(parseFindingMarker(marker)).toBeNull();
     expect(isFindingComment(marker)).toBe(false);
+  });
+
+  it("extracts a finding body from both colored and legacy headings", () => {
+    for (const heading of [
+      '**[<font color="#cf222e">P0</font>] Title**',
+      "**[P0] Title**"
+    ]) {
+      expect(extractFindingBody(`${heading}\n\nFinding body\n\n${buildFindingMarker(fields)}`, fields)).toBe("Finding body");
+    }
   });
 
   it("normalizes legacy suppressed summary rows to dismissed", () => {

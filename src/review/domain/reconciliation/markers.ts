@@ -1,5 +1,5 @@
 import type { FindingState, ReviewSource, Severity } from "../types.js";
-import { shortenFindingTitle } from "../findings/title.js";
+import { renderFindingTitle, shortenFindingTitle } from "../findings/title.js";
 import { parseSeverity } from "../severity.js";
 
 const FINDING_MARKER_PATTERN =
@@ -107,10 +107,15 @@ export function parseFindingMarker(body: string): FindingMarkerFields | null {
 export function extractFindingBody(body: string, marker: FindingMarkerFields): string {
   const markerStart = body.search(/<!--\s*vetter:finding:v2\b/);
   let findingBody = (markerStart === -1 ? body : body.slice(0, markerStart)).trim();
-  const renderedTitle = `**[${marker.severity.toUpperCase()}] ${shortenFindingTitle(marker.title)}**`;
+  const renderedTitles = [
+    renderFindingTitle(marker.severity, marker.title),
+    `**[${marker.severity}] ${shortenFindingTitle(marker.title)}**`
+  ];
 
-  while (findingBody.startsWith(renderedTitle)) {
-    findingBody = findingBody.slice(renderedTitle.length).trimStart();
+  for (const renderedTitle of renderedTitles) {
+    while (findingBody.startsWith(renderedTitle)) {
+      findingBody = findingBody.slice(renderedTitle.length).trimStart();
+    }
   }
 
   return findingBody.trimEnd();

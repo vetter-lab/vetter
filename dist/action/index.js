@@ -45526,6 +45526,12 @@ function getOctokit(token, options, ...additionalPlugins) {
 const MAX_TITLE_WORDS = 10;
 const MAX_TITLE_LENGTH = 96;
 const ELLIPSIS = "...";
+const SEVERITY_COLORS = {
+    P0: "#cf222e",
+    P1: "#bc4c00",
+    P2: "#9a6700",
+    P3: "#6e7781"
+};
 /**
  * Keeps user-visible finding titles useful in compact comment tables while
  * leaving the original title available for the hidden finding marker.
@@ -45552,6 +45558,10 @@ function shortenFindingTitle(title) {
         prefix = normalized.slice(0, maxPrefixLength).trimEnd();
     }
     return `${prefix}${ELLIPSIS}`;
+}
+/** Renders the visible inline comment heading with a severity-specific color. */
+function renderFindingTitle(severity, title) {
+    return `**[<font color="${SEVERITY_COLORS[severity]}">${severity}</font>] ${shortenFindingTitle(title)}**`;
 }
 
 ;// CONCATENATED MODULE: ./src/review/domain/severity.ts
@@ -45645,9 +45655,14 @@ function parseFindingMarker(body) {
 function extractFindingBody(body, marker) {
     const markerStart = body.search(/<!--\s*vetter:finding:v2\b/);
     let findingBody = (markerStart === -1 ? body : body.slice(0, markerStart)).trim();
-    const renderedTitle = `**[${marker.severity.toUpperCase()}] ${shortenFindingTitle(marker.title)}**`;
-    while (findingBody.startsWith(renderedTitle)) {
-        findingBody = findingBody.slice(renderedTitle.length).trimStart();
+    const renderedTitles = [
+        renderFindingTitle(marker.severity, marker.title),
+        `**[${marker.severity}] ${shortenFindingTitle(marker.title)}**`
+    ];
+    for (const renderedTitle of renderedTitles) {
+        while (findingBody.startsWith(renderedTitle)) {
+            findingBody = findingBody.slice(renderedTitle.length).trimStart();
+        }
     }
     return findingBody.trimEnd();
 }
@@ -67607,7 +67622,7 @@ function renderInlineBody(finding, botResolved) {
         botResolved
     });
     return [
-        `**[${finding.severity.toUpperCase()}] ${shortenFindingTitle(finding.title)}**`,
+        renderFindingTitle(finding.severity, finding.title),
         "",
         finding.body,
         "",

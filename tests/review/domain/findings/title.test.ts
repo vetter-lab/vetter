@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { shortenFindingTitle } from "../../../../src/review/domain/findings/title.js";
+import { renderFindingTitle, shortenFindingTitle } from "../../../../src/review/domain/findings/title.js";
 
 describe("shortenFindingTitle", () => {
   it("keeps short titles unchanged", () => {
@@ -17,5 +17,16 @@ describe("shortenFindingTitle", () => {
 
   it("collapses whitespace before rendering", () => {
     expect(shortenFindingTitle("  Avoid\n\tmutable   state  ")).toBe("Avoid mutable state");
+  });
+
+  it.each([
+    ["P0", "#cf222e"],
+    ["P1", "#bc4c00"],
+    ["P2", "#9a6700"],
+    ["P3", "#6e7781"]
+  ] as const)("renders %s with color %s", (severity, color) => {
+    expect(renderFindingTitle(severity, "Avoid mutable state")).toBe(
+      `**[<font color="${color}">${severity}</font>] Avoid mutable state**`
+    );
   });
 });

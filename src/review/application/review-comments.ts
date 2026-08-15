@@ -1,6 +1,6 @@
 import type { GitHubGateway } from "../../integrations/github/gateway.js";
 import type { CreateReviewCommentInput, PullRequestRef } from "../../integrations/github/types.js";
-import { shortenFindingTitle } from "../domain/findings/title.js";
+import { renderFindingTitle } from "../domain/findings/title.js";
 import { buildFindingMarker } from "../domain/reconciliation/markers.js";
 import type { ReconciliationPlan, RenderableFinding } from "../domain/reconciliation/reconcile.js";
 
@@ -17,7 +17,7 @@ export function renderInlineBody(finding: RenderableFinding, botResolved: boolea
   });
 
   return [
-    `**[${finding.severity.toUpperCase()}] ${shortenFindingTitle(finding.title)}**`,
+    renderFindingTitle(finding.severity, finding.title),
     "",
     finding.body,
     "",

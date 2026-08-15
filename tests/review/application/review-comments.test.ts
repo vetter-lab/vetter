@@ -21,7 +21,9 @@ describe("renderInlineBody", () => {
       false
     );
 
-    expect(body).toContain("**[P1] GitHub Actions step uses a mutable tag or branch...**");
+    expect(body).toContain(
+      "**[<font color=\"#bc4c00\">P1</font>] GitHub Actions step uses a mutable tag or branch...**"
+    );
     expect(body).toContain(`title="${title}"`);
     expect(body).toContain("Use a pinned commit.");
   });
