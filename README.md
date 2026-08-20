@@ -12,7 +12,8 @@ Vetter runs as either a **GitHub App** (webhook-driven) or a **GitHub Action** (
 3. It fetches the incremental diff, sends it to the configured LLM, and normalizes the returned findings.
 4. It re-reads the PR head SHA immediately before mutating anything; a stale or superseded run is discarded (latest-wins).
 5. It reconciles findings against existing Vetter-owned comments and threads: new findings get inline comments, fixed findings get their thread resolved, findings resolved by a human stay dismissed.
-6. It rebuilds the summary comment and updates the Check Run conclusion.
+6. It rebuilds the summary comment and updates the Check Run conclusion. When
+   no findings are detected, the summary includes a short positive message.
 
 See [docs/configuration.md](docs/configuration.md) for the full `.vetter.yml` reference and [docs/testing.md](docs/testing.md) for the state-machine semantics (`open` / `fixed` / `dismissed`) and behavioral guarantees.
 

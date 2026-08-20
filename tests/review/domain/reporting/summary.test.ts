@@ -17,6 +17,18 @@ function row(severity: Severity, path: string, overrides?: Partial<SummaryRow>):
 }
 
 describe("renderSummaryComment", () => {
+  it("celebrates a review with no findings", () => {
+    const body = renderSummaryComment({
+      rows: [],
+      owner: "owner",
+      repo: "repo",
+      pullRequestNumber: 1,
+      headSha: "head-sha"
+    });
+
+    expect(body).toContain("_No findings. Great work!_");
+  });
+
   it("sorts rows from P0 to P3", () => {
     const body = renderSummaryComment({
       rows: [row("P3", "p3.ts"), row("P1", "p1.ts"), row("P0", "p0.ts"), row("P2", "p2.ts")],
@@ -127,5 +139,18 @@ describe("renderSummaryComment", () => {
     expect(body).toContain("## Vetter 审查摘要");
     expect(body).toContain("| 严重程度 | 状态 | 文件 | 标题 |");
     expect(body).toContain("🔴 待处理");
+  });
+
+  it("localizes the no-findings praise", () => {
+    const body = renderSummaryComment({
+      rows: [],
+      owner: "owner",
+      repo: "repo",
+      pullRequestNumber: 1,
+      headSha: "head-sha",
+      language: "zh-CN"
+    });
+
+    expect(body).toContain("_未发现问题。干得漂亮！_");
   });
 });
