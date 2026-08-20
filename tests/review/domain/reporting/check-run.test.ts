@@ -51,4 +51,20 @@ describe("evaluateCheckRun", () => {
     expect(result.summary).toContain("未解决问题: 1");
     expect(result.summary).toContain("阻止合并: 否");
   });
+
+  it("localizes the no-findings Check Run title", () => {
+    const result = evaluateCheckRun({
+      rows: [],
+      severity: {
+        P0: { blockMerge: false },
+        P1: { blockMerge: false },
+        P2: { blockMerge: false },
+        P3: { blockMerge: false }
+      },
+      failures: [],
+      language: "zh-CN"
+    });
+
+    expect(result.title).toBe("Vetter 未发现问题");
+  });
 });
