@@ -67040,7 +67040,7 @@ const DEFAULT_REVIEW_LANGUAGE = "en";
 const OUTPUT_LABELS = {
     en: {
         summaryTitle: "Vetter review summary",
-        noFindings: "_No issues found in this review. Great work!_",
+        noFindings: "🎉 No issues found in this review. Great work!",
         tableHeaders: { severity: "Severity", state: "State", file: "File", title: "Title" },
         states: { open: "🔴 open", fixed: "✅ fixed", dismissed: "⚪ dismissed" },
         checkRun: {
@@ -67057,7 +67057,7 @@ const OUTPUT_LABELS = {
     },
     zh: {
         summaryTitle: "Vetter 审查摘要",
-        noFindings: "_本次审查未发现问题，做得很好！_",
+        noFindings: "🎉 本次审查未发现问题，做得很好！",
         tableHeaders: { severity: "严重程度", state: "状态", file: "文件", title: "标题" },
         states: { open: "🔴 待处理", fixed: "✅ 已修复", dismissed: "⚪ 已忽略" },
         checkRun: {
@@ -67074,7 +67074,7 @@ const OUTPUT_LABELS = {
     },
     ja: {
         summaryTitle: "Vetter レビュー概要",
-        noFindings: "_このレビューでは問題は見つかりませんでした。素晴らしい出来です！_",
+        noFindings: "🎉 このレビューでは問題は見つかりませんでした。素晴らしい出来です！",
         tableHeaders: { severity: "重大度", state: "状態", file: "ファイル", title: "タイトル" },
         states: { open: "🔴 未対応", fixed: "✅ 修正済み", dismissed: "⚪ 無視済み" },
         checkRun: {
@@ -67091,7 +67091,7 @@ const OUTPUT_LABELS = {
     },
     ko: {
         summaryTitle: "Vetter 리뷰 요약",
-        noFindings: "_이번 리뷰에서는 문제가 발견되지 않았습니다. 잘하셨습니다!_",
+        noFindings: "🎉 이번 리뷰에서는 문제가 발견되지 않았습니다. 잘하셨습니다!",
         tableHeaders: { severity: "심각도", state: "상태", file: "파일", title: "제목" },
         states: { open: "🔴 미해결", fixed: "✅ 수정됨", dismissed: "⚪ 무시됨" },
         checkRun: {
@@ -67108,7 +67108,7 @@ const OUTPUT_LABELS = {
     },
     es: {
         summaryTitle: "Resumen de revisión de Vetter",
-        noFindings: "_No se encontraron problemas en esta revisión. ¡Buen trabajo!_",
+        noFindings: "🎉 No se encontraron problemas en esta revisión. ¡Buen trabajo!",
         tableHeaders: { severity: "Severidad", state: "Estado", file: "Archivo", title: "Título" },
         states: { open: "🔴 abierto", fixed: "✅ corregido", dismissed: "⚪ ignorado" },
         checkRun: {
@@ -67125,7 +67125,7 @@ const OUTPUT_LABELS = {
     },
     fr: {
         summaryTitle: "Résumé de revue Vetter",
-        noFindings: "_Aucun problème n'a été trouvé lors de cette revue. Bon travail !_",
+        noFindings: "🎉 Aucun problème n'a été trouvé lors de cette revue. Bon travail !",
         tableHeaders: { severity: "Sévérité", state: "État", file: "Fichier", title: "Titre" },
         states: { open: "🔴 ouvert", fixed: "✅ corrigé", dismissed: "⚪ ignoré" },
         checkRun: {
@@ -67142,7 +67142,7 @@ const OUTPUT_LABELS = {
     },
     de: {
         summaryTitle: "Vetter Review-Zusammenfassung",
-        noFindings: "_Bei dieser Prüfung wurden keine Probleme gefunden. Gute Arbeit!_",
+        noFindings: "🎉 Bei dieser Prüfung wurden keine Probleme gefunden. Gute Arbeit!",
         tableHeaders: { severity: "Schweregrad", state: "Status", file: "Datei", title: "Titel" },
         states: { open: "🔴 offen", fixed: "✅ behoben", dismissed: "⚪ ignoriert" },
         checkRun: {
