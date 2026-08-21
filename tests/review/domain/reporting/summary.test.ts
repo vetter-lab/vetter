@@ -26,7 +26,7 @@ describe("renderSummaryComment", () => {
       headSha: "head-sha"
     });
 
-    expect(body).toContain("_No issues found in this review. Great work!_");
+    expect(body).toContain("🎉 No issues found in this review. Great work!");
   });
 
   it("sorts rows from P0 to P3", () => {
@@ -151,6 +151,6 @@ describe("renderSummaryComment", () => {
       language: "zh-CN"
     });
 
-    expect(body).toContain("_本次审查未发现问题，做得很好！_");
+    expect(body).toContain("🎉 本次审查未发现问题，做得很好！");
   });
 });
